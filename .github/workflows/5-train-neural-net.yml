@@ -1,0 +1,68 @@
+name: 5. Train Neural Network Models
+
+on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: 'Neural network architecture'
+        required: false
+        default: 'mlp'
+        type: choice
+        options:
+          - mlp
+          - hint
+          - custom
+      epochs:
+        description: 'Number of training epochs'
+        required: false
+        default: '100'
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  train-neural-net:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull latest changes
+        run: git pull origin ${{ github.ref_name }} || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt || echo "requirements.txt not found"
+
+      - name: Train neural network
+        env:
+          ARCHITECTURE: ${{ github.event.inputs.architecture || 'mlp' }}
+          EPOCHS: ${{ github.event.inputs.epochs || '100' }}
+        run: |
+          # TODO: Replace with actual script
+          echo "Training neural network (arch: $ARCHITECTURE, epochs: $EPOCHS)..."
+          python -m src.models.train_neural_net || echo "Placeholder: script not yet implemented"
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: neural-net-models
+          path: |
+            models/neural_net/
+            reports/neural_net/
+          retention-days: 30
+
+      - name: Commit and push models
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add models/neural_net/ reports/neural_net/ || true
+          git diff --staged --quiet || git commit -m "Neural network: ${{ github.event.inputs.architecture }} - $(date -u +%Y-%m-%d)"
+          git push

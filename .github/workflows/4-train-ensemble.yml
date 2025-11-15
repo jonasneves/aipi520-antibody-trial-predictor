@@ -1,0 +1,63 @@
+name: 4. Train Ensemble Models
+
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: 'Ensemble models to train'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - xgboost
+          - lightgbm
+          - catboost
+
+permissions:
+  contents: write
+
+jobs:
+  train-ensemble:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull latest changes
+        run: git pull origin ${{ github.ref_name }} || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt || echo "requirements.txt not found"
+
+      - name: Train ensemble models
+        env:
+          MODELS: ${{ github.event.inputs.models || 'all' }}
+        run: |
+          # TODO: Replace with actual script
+          echo "Training ensemble models: $MODELS..."
+          python -m src.models.train_ensemble || echo "Placeholder: script not yet implemented"
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ensemble-models
+          path: |
+            models/ensemble/
+            reports/ensemble/
+          retention-days: 30
+
+      - name: Commit and push models
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add models/ensemble/ reports/ensemble/ || true
+          git diff --staged --quiet || git commit -m "Ensemble models: ${{ github.event.inputs.models }} - $(date -u +%Y-%m-%d)"
+          git push

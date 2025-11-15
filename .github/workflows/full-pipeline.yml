@@ -1,0 +1,258 @@
+name: Full ML Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      data_source:
+        description: 'Data source to use'
+        required: false
+        default: 'local'
+        type: choice
+        options:
+          - local
+          - api
+      model_scope:
+        description: 'Which models to train'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - baseline_only
+          - ensemble_only
+          - neural_net_only
+
+permissions:
+  contents: write
+
+jobs:
+  # Stage 1: Data Collection
+  data-collection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull latest changes
+        run: git pull origin ${{ github.ref_name }} || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt || echo "requirements.txt not found"
+
+      - name: Run data collection
+        env:
+          DATA_SOURCE: ${{ github.event.inputs.data_source || 'local' }}
+        run: |
+          echo "Collecting data from $DATA_SOURCE..."
+          python -m src.data.collect_data || echo "Placeholder: script not yet implemented"
+
+      - name: Commit and push data
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/ || true
+          git diff --staged --quiet || git commit -m "Pipeline: Data collection - $(date -u +%Y-%m-%d)"
+          git push
+
+  # Stage 2: Feature Engineering
+  feature-engineering:
+    needs: data-collection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull latest changes
+        run: git pull origin ${{ github.ref_name }} || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt || echo "requirements.txt not found"
+
+      - name: Run feature engineering
+        run: |
+          echo "Building features..."
+          python -m src.features.build_features || echo "Placeholder: script not yet implemented"
+
+      - name: Commit and push features
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/processed/ || true
+          git diff --staged --quiet || git commit -m "Pipeline: Feature engineering - $(date -u +%Y-%m-%d)"
+          git push
+
+  # Stage 3a: Train Baseline Models
+  train-baseline:
+    needs: feature-engineering
+    if: github.event.inputs.model_scope == 'all' || github.event.inputs.model_scope == 'baseline_only'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull latest changes
+        run: git pull origin ${{ github.ref_name }} || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt || echo "requirements.txt not found"
+
+      - name: Train baseline models
+        run: |
+          echo "Training baseline models..."
+          python -m src.models.train_baseline || echo "Placeholder: script not yet implemented"
+
+      - name: Commit and push models
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add models/baseline/ reports/baseline/ || true
+          git diff --staged --quiet || git commit -m "Pipeline: Baseline models - $(date -u +%Y-%m-%d)"
+          git push
+
+  # Stage 3b: Train Ensemble Models
+  train-ensemble:
+    needs: feature-engineering
+    if: github.event.inputs.model_scope == 'all' || github.event.inputs.model_scope == 'ensemble_only'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull latest changes
+        run: git pull origin ${{ github.ref_name }} || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt || echo "requirements.txt not found"
+
+      - name: Train ensemble models
+        run: |
+          echo "Training ensemble models..."
+          python -m src.models.train_ensemble || echo "Placeholder: script not yet implemented"
+
+      - name: Commit and push models
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add models/ensemble/ reports/ensemble/ || true
+          git diff --staged --quiet || git commit -m "Pipeline: Ensemble models - $(date -u +%Y-%m-%d)"
+          git push
+
+  # Stage 3c: Train Neural Networks
+  train-neural-net:
+    needs: feature-engineering
+    if: github.event.inputs.model_scope == 'all' || github.event.inputs.model_scope == 'neural_net_only'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull latest changes
+        run: git pull origin ${{ github.ref_name }} || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt || echo "requirements.txt not found"
+
+      - name: Train neural networks
+        run: |
+          echo "Training neural networks..."
+          python -m src.models.train_neural_net || echo "Placeholder: script not yet implemented"
+
+      - name: Commit and push models
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add models/neural_net/ reports/neural_net/ || true
+          git diff --staged --quiet || git commit -m "Pipeline: Neural networks - $(date -u +%Y-%m-%d)"
+          git push
+
+  # Stage 4: Evaluate All Models
+  evaluate-models:
+    needs: [train-baseline, train-ensemble, train-neural-net]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull latest changes
+        run: git pull origin ${{ github.ref_name }} || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt || echo "requirements.txt not found"
+
+      - name: Evaluate models
+        run: |
+          echo "Evaluating all models..."
+          python -m src.models.evaluate_model || echo "Placeholder: script not yet implemented"
+
+      - name: Generate final report
+        run: |
+          echo "Generating final report..."
+          python -m src.models.generate_report || echo "Placeholder: script not yet implemented"
+
+      - name: Commit and push results
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add reports/ || true
+          git diff --staged --quiet || git commit -m "Pipeline: Evaluation complete - $(date -u +%Y-%m-%d)"
+          git push
+
+      - name: Write pipeline summary
+        run: |
+          echo "# Full ML Pipeline Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Data Source:** \`${{ github.event.inputs.data_source || 'local' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Model Scope:** \`${{ github.event.inputs.model_scope || 'all' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Completed Stages:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Data Collection" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Feature Engineering" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.train-baseline.result }}" == "success" ]; then
+            echo "- ✅ Baseline Models" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.train-ensemble.result }}" == "success" ]; then
+            echo "- ✅ Ensemble Models" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.train-neural-net.result }}" == "success" ]; then
+            echo "- ✅ Neural Networks" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- ✅ Model Evaluation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Completed:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
