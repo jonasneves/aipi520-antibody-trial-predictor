@@ -3,256 +3,262 @@ name: Full ML Pipeline
 on:
   workflow_dispatch:
     inputs:
+      max_studies:
+        description: 'Maximum antibody trials to collect'
+        required: false
+        default: '1000'
+        type: string
       data_source:
-        description: 'Data source to use'
+        description: 'Data source'
         required: false
-        default: 'local'
+        default: 'synthetic'
         type: choice
         options:
-          - local
+          - synthetic
           - api
-      model_scope:
-        description: 'Which models to train'
-        required: false
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - baseline_only
-          - ensemble_only
-          - neural_net_only
 
 permissions:
   contents: write
 
 jobs:
-  # Stage 1: Data Collection
-  data-collection:
+  # Stage 1: Data Collection & Feature Engineering (Sequential)
+  prepare-data:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Pull latest changes
-        run: git pull origin ${{ github.ref_name }} || true
-
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt || echo "requirements.txt not found"
-
-      - name: Run data collection
-        env:
-          DATA_SOURCE: ${{ github.event.inputs.data_source || 'local' }}
         run: |
-          echo "Collecting data from $DATA_SOURCE..."
-          python -m src.data.collect_data || echo "Placeholder: script not yet implemented"
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Commit and push data
+      - name: Collect data and engineer features
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add data/ || true
-          git diff --staged --quiet || git commit -m "Pipeline: Data collection - $(date -u +%Y-%m-%d)"
-          git push
+          python scripts/prepare_data.py \
+            ${{ github.event.inputs.data_source || 'synthetic' }} \
+            ${{ github.event.inputs.max_studies || '1000' }}
 
-  # Stage 2: Feature Engineering
-  feature-engineering:
-    needs: data-collection
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Pull latest changes
-        run: git pull origin ${{ github.ref_name }} || true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt || echo "requirements.txt not found"
-
-      - name: Run feature engineering
+      - name: Create data preparation summary
         run: |
-          echo "Building features..."
-          python -m src.features.build_features || echo "Placeholder: script not yet implemented"
-
-      - name: Commit and push features
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add data/processed/ || true
-          git diff --staged --quiet || git commit -m "Pipeline: Feature engineering - $(date -u +%Y-%m-%d)"
-          git push
-
-  # Stage 3a: Train Baseline Models
-  train-baseline:
-    needs: feature-engineering
-    if: github.event.inputs.model_scope == 'all' || github.event.inputs.model_scope == 'baseline_only'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Pull latest changes
-        run: git pull origin ${{ github.ref_name }} || true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt || echo "requirements.txt not found"
-
-      - name: Train baseline models
-        run: |
-          echo "Training baseline models..."
-          python -m src.models.train_baseline || echo "Placeholder: script not yet implemented"
-
-      - name: Commit and push models
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add models/baseline/ reports/baseline/ || true
-          git diff --staged --quiet || git commit -m "Pipeline: Baseline models - $(date -u +%Y-%m-%d)"
-          git push
-
-  # Stage 3b: Train Ensemble Models
-  train-ensemble:
-    needs: feature-engineering
-    if: github.event.inputs.model_scope == 'all' || github.event.inputs.model_scope == 'ensemble_only'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Pull latest changes
-        run: git pull origin ${{ github.ref_name }} || true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt || echo "requirements.txt not found"
-
-      - name: Train ensemble models
-        run: |
-          echo "Training ensemble models..."
-          python -m src.models.train_ensemble || echo "Placeholder: script not yet implemented"
-
-      - name: Commit and push models
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add models/ensemble/ reports/ensemble/ || true
-          git diff --staged --quiet || git commit -m "Pipeline: Ensemble models - $(date -u +%Y-%m-%d)"
-          git push
-
-  # Stage 3c: Train Neural Networks
-  train-neural-net:
-    needs: feature-engineering
-    if: github.event.inputs.model_scope == 'all' || github.event.inputs.model_scope == 'neural_net_only'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Pull latest changes
-        run: git pull origin ${{ github.ref_name }} || true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt || echo "requirements.txt not found"
-
-      - name: Train neural networks
-        run: |
-          echo "Training neural networks..."
-          python -m src.models.train_neural_net || echo "Placeholder: script not yet implemented"
-
-      - name: Commit and push models
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add models/neural_net/ reports/neural_net/ || true
-          git diff --staged --quiet || git commit -m "Pipeline: Neural networks - $(date -u +%Y-%m-%d)"
-          git push
-
-  # Stage 4: Evaluate All Models
-  evaluate-models:
-    needs: [train-baseline, train-ensemble, train-neural-net]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Pull latest changes
-        run: git pull origin ${{ github.ref_name }} || true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt || echo "requirements.txt not found"
-
-      - name: Evaluate models
-        run: |
-          echo "Evaluating all models..."
-          python -m src.models.evaluate_model || echo "Placeholder: script not yet implemented"
-
-      - name: Generate final report
-        run: |
-          echo "Generating final report..."
-          python -m src.models.generate_report || echo "Placeholder: script not yet implemented"
-
-      - name: Commit and push results
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add reports/ || true
-          git diff --staged --quiet || git commit -m "Pipeline: Evaluation complete - $(date -u +%Y-%m-%d)"
-          git push
-
-      - name: Write pipeline summary
-        run: |
-          echo "# Full ML Pipeline Complete" >> $GITHUB_STEP_SUMMARY
+          echo "# Data Preparation Complete ✓" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Data Source:** \`${{ github.event.inputs.data_source || 'local' }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Model Scope:** \`${{ github.event.inputs.model_scope || 'all' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Data Source:** ${{ github.event.inputs.data_source || 'synthetic' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Max Studies:** ${{ github.event.inputs.max_studies || '1000' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Completed Stages:**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Data Collection" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Feature Engineering" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ needs.train-baseline.result }}" == "success" ]; then
-            echo "- ✅ Baseline Models" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ needs.train-ensemble.result }}" == "success" ]; then
-            echo "- ✅ Ensemble Models" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ needs.train-neural-net.result }}" == "success" ]; then
-            echo "- ✅ Neural Networks" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "- ✅ Model Evaluation" >> $GITHUB_STEP_SUMMARY
+          echo "## Generated Files" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -lh data/clinical_trials_features.csv models/feature_names.json >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Completed:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+          echo "**Features CSV:** $(wc -l < data/clinical_trials_features.csv) rows" >> $GITHUB_STEP_SUMMARY
+          echo "**Features:** $(head -1 data/clinical_trials_features.csv | tr ',' '\n' | wc -l) columns" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload feature data
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-data
+          path: |
+            data/clinical_trials_features.csv
+            models/feature_names.json
+          retention-days: 1
+
+  # Stage 2: Train Models in Parallel (Matrix Strategy)
+  train-models:
+    needs: prepare-data
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        model:
+          - name: 'Logistic Regression'
+            code: 'lr'
+          - name: 'Decision Tree'
+            code: 'dt'
+          - name: 'Random Forest'
+            code: 'rf'
+          - name: 'Gradient Boosting'
+            code: 'gb'
+          - name: 'XGBoost'
+            code: 'xgb'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download feature data
+        uses: actions/download-artifact@v4
+        with:
+          name: feature-data
+          path: .
+
+      - name: Train ${{ matrix.model.name }}
+        run: |
+          python scripts/train_single_model.py \
+            ${{ matrix.model.code }} \
+            data/clinical_trials_features.csv \
+            models/
+
+      - name: Create model training summary
+        run: |
+          echo "# ${{ matrix.model.name }} Training Complete ✓" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Model Code:** \`${{ matrix.model.code }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Performance Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+          cat models/results_${{ matrix.model.code }}.json >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -lh models/${{ matrix.model.code }}_model.pkl models/results_${{ matrix.model.code }}.json >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload model and results
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-${{ matrix.model.code }}
+          path: |
+            models/${{ matrix.model.code }}_model.pkl
+            models/results_${{ matrix.model.code }}.json
+          retention-days: 30
+
+  # Stage 3: Aggregate Results and Compare
+  aggregate-results:
+    needs: train-models
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install pandas
+
+      - name: Download all model results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: model-*
+          merge-multiple: true
+          path: .
+
+      - name: Move artifacts to models directory
+        run: |
+          mv *.pkl *.json models/ 2>/dev/null || true
+          ls -lh models/
+
+      - name: Aggregate and compare results
+        run: python scripts/aggregate_results.py models reports/model_comparison.csv
+
+      - name: Generate HTML report
+        run: |
+          pip install plotly
+          python scripts/generate_report.py models docs/index.html \
+            --timestamp "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
+            --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --repo "${{ github.repository }}"
+
+      - name: Create aggregation summary
+        run: |
+          echo "# Results Aggregation Complete ✓" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Models Downloaded" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -lh models/*.json | wc -l | xargs echo "Total models:"
+          ls -lh models/*.json >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Comparison Report" >> $GITHUB_STEP_SUMMARY
+          echo "**Location:** \`reports/model_comparison.csv\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Commit results
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git add models/*.pkl reports/model_comparison.csv docs/index.html || true
+
+          if ! git diff --staged --quiet; then
+            git commit -m "Pipeline results: ${{ github.event.inputs.max_studies }} trials - $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          publish_branch: gh-pages
+          commit_message: "Deploy ML results dashboard"
+
+      - name: Create final summary
+        run: |
+          echo "# 🎯 ML Pipeline Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Max Studies:** ${{ github.event.inputs.max_studies || '1000' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Data Source:** ${{ github.event.inputs.data_source || 'synthetic' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Models Trained:** 5 (in parallel)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Training Strategy:** GitHub Actions Matrix" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f reports/model_comparison.csv ]; then
+            echo "## 📊 Model Comparison Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Models sorted by ROC AUC (best to worst):" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`csv" >> $GITHUB_STEP_SUMMARY
+            cat reports/model_comparison.csv >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Extract best model info
+            BEST_MODEL=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f1)
+            BEST_AUC=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f6)
+            echo "## 🏆 Best Model" >> $GITHUB_STEP_SUMMARY
+            echo "**${BEST_MODEL}** with ROC AUC: **${BEST_AUC}**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "## 📦 Artifacts Generated" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ 5 trained model files (\`.pkl\`)" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Model comparison report (\`reports/model_comparison.csv\`)" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Individual model metrics (\`models/results_*.json\`)" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Interactive HTML dashboard (\`docs/index.html\`)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## 🌐 Live Dashboard" >> $GITHUB_STEP_SUMMARY
+            echo "View the interactive results dashboard at:" >> $GITHUB_STEP_SUMMARY
+            echo "**https://jonasneves.github.io/aipi520-project2/**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Model comparison report not found" >> $GITHUB_STEP_SUMMARY
+          fi
