@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Trial Outcome Prediction - ML Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {{
+            --primary-blue: #2563eb;
+            --primary-teal: #0891b2;
+            --primary-cyan: #06b6d4;
+            --accent-orange: #f97316;
+            --accent-emerald: #10b981;
+            --bg-primary: #f8fafc;
+            --bg-secondary: #e2e8f0;
+            --bg-card: #ffffff;
+            --text-primary: #1e293b;
+            --text-body: #334155;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --border-color: rgba(37, 99, 235, 0.12);
+        }}
+
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+
+        body {{
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            background-image:
+                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(8, 145, 178, 0.04) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(249, 115, 22, 0.03) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.03) 0px, transparent 50%);
+            background-attachment: fixed;
+        }}
+
+        .container {{
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }}
+
+        .header {{
+            text-align: center;
+            margin-bottom: 4rem;
+            padding: 4rem 2rem;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg,
+                rgba(37, 99, 235, 0.08) 0%,
+                rgba(8, 145, 178, 0.06) 50%,
+                rgba(6, 182, 212, 0.05) 100%);
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+        }}
+
+        .header h1 {{
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-teal));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+        }}
+
+        .header .subtitle {{
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }}
+
+        .header .meta {{
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }}
+
+        .metrics-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 4rem;
+        }}
+
+        .metric-card {{
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+        }}
+
+        .metric-card:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.15);
+        }}
+
+        .metric-card::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-color), transparent);
+        }}
+
+        .metric-card.best::before {{ --accent-color: var(--primary-blue); }}
+        .metric-card.roc::before {{ --accent-color: var(--primary-teal); }}
+        .metric-card.f1::before {{ --accent-color: var(--accent-orange); }}
+
+        .metric-label {{
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }}
+
+        .metric-value {{
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }}
+
+        .metric-card.best .metric-value {{ color: var(--primary-blue); }}
+        .metric-card.roc .metric-value {{ color: var(--primary-teal); }}
+        .metric-card.f1 .metric-value {{ color: var(--accent-orange); }}
+
+        .section {{
+            margin-bottom: 4rem;
+        }}
+
+        .section-header {{
+            margin-bottom: 2rem;
+        }}
+
+        .section-title {{
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }}
+
+        .section-description {{
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }}
+
+        .card {{
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
+        }}
+
+        .info-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }}
+
+        .info-block h3 {{
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--primary-teal);
+        }}
+
+        .info-block p, .info-block ul {{
+            color: var(--text-body);
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }}
+
+        .info-block ul {{
+            list-style: none;
+            padding-left: 0;
+        }}
+
+        .info-block ul li {{
+            padding: 0.4rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }}
+
+        .info-block ul li::before {{
+            content: '▸';
+            position: absolute;
+            left: 0;
+            color: var(--primary-teal);
+        }}
+
+        pre {{
+            background: rgba(8, 145, 178, 0.08);
+            border: 1px solid rgba(8, 145, 178, 0.25);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+        }}
+
+        pre code {{
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 0.875rem;
+            color: var(--primary-cyan);
+            background: transparent;
+            border: none;
+            padding: 0;
+            line-height: 1.6;
+        }}
+
+        .table-container {{
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }}
+
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }}
+
+        thead {{
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-teal));
+        }}
+
+        thead th {{
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: white;
+            border-bottom: 2px solid var(--border-color);
+        }}
+
+        tbody tr {{
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s ease;
+        }}
+
+        tbody tr:hover {{
+            background: rgba(8, 145, 178, 0.06);
+        }}
+
+        tbody tr.best-model {{
+            background: rgba(37, 99, 235, 0.08);
+        }}
+
+        tbody td {{
+            padding: 1rem;
+            color: var(--text-primary);
+        }}
+
+        .badge {{
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+            background: var(--accent-orange);
+            color: white;
+        }}
+
+        .feature-pills {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }}
+
+        .pill {{
+            background: rgba(8, 145, 178, 0.15);
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            color: var(--primary-cyan);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }}
+
+        details {{
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--bg-card);
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            margin-top: 1.5rem;
+        }}
+
+        details[open] {{
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.12);
+        }}
+
+        summary {{
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-body);
+            user-select: none;
+            padding: 1rem 1.5rem;
+            transition: all 0.2s ease;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.04) 0%, rgba(8, 145, 178, 0.04) 100%);
+            border-bottom: 1px solid transparent;
+        }}
+
+        summary::-webkit-details-marker {{
+            display: none;
+        }}
+
+        summary::after {{
+            content: '▼';
+            font-size: 0.7rem;
+            color: var(--primary-teal);
+            transition: transform 0.3s ease;
+            opacity: 0.7;
+        }}
+
+        details[open] summary {{
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.06) 0%, rgba(8, 145, 178, 0.06) 100%);
+            border-bottom: 1px solid var(--border-color);
+        }}
+
+        details[open] summary::after {{
+            transform: rotate(-180deg);
+        }}
+
+        summary:hover {{
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(8, 145, 178, 0.08) 100%);
+        }}
+
+        summary:hover::after {{
+            opacity: 1;
+            color: var(--primary-blue);
+        }}
+
+        .features-list {{
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }}
+
+        .feature-item {{
+            color: var(--text-body);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            padding: 1rem 1.25rem;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.06);
+            transition: all 0.2s ease;
+        }}
+
+        .feature-item:hover {{
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+            border-color: rgba(37, 99, 235, 0.2);
+            transform: translateY(-1px);
+        }}
+
+        .feature-item strong {{
+            color: var(--primary-cyan);
+            display: block;
+            margin-bottom: 0.3rem;
+            font-size: 0.95rem;
+        }}
+
+        .chart-container {{
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
+        }}
+
+        .citation {{
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-size: 0.75em;
+            vertical-align: super;
+            font-weight: 600;
+            padding: 0 0.15em;
+        }}
+
+        .citation:hover {{
+            color: var(--primary-teal);
+            text-decoration: underline;
+        }}
+
+        .info-tooltip {{
+            position: relative;
+            display: inline-block;
+            margin-left: 0.25rem;
+            cursor: help;
+        }}
+
+        .info-icon {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary-teal);
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            vertical-align: middle;
+            transition: all 0.2s ease;
+        }}
+
+        .info-icon:hover {{
+            background: var(--primary-blue);
+            transform: scale(1.1);
+        }}
+
+        .tooltip-content {{
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            z-index: 1000;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 320px;
+            background: white;
+            color: var(--text-body);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.2);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            pointer-events: none;
+        }}
+
+        .tooltip-content::after {{
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: white;
+        }}
+
+        .info-tooltip:hover .tooltip-content {{
+            visibility: visible;
+            opacity: 1;
+        }}
+
+        @media (hover: none) and (pointer: coarse) {{
+            .tooltip-content {{
+                width: 280px;
+            }}
+            .info-tooltip:active .tooltip-content {{
+                visibility: visible;
+                opacity: 1;
+            }}
+        }}
+
+        .references {{
+            margin-top: 3rem;
+            padding: 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+        }}
+
+        .references h3 {{
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--primary-cyan);
+        }}
+
+        .references ol {{
+            counter-reset: ref-counter;
+            list-style: none;
+            padding-left: 0;
+        }}
+
+        .references li {{
+            counter-increment: ref-counter;
+            padding: 0.75rem 0;
+            padding-left: 2.5rem;
+            position: relative;
+            color: var(--text-body);
+            line-height: 1.7;
+            border-bottom: 1px solid var(--border-color);
+        }}
+
+        .references li:last-child {{
+            border-bottom: none;
+        }}
+
+        .references li::before {{
+            content: "[" counter(ref-counter) "]";
+            position: absolute;
+            left: 0;
+            font-weight: 600;
+            color: var(--primary-blue);
+        }}
+
+        .references a {{
+            color: var(--primary-teal);
+            text-decoration: none;
+            word-break: break-word;
+        }}
+
+        .references a:hover {{
+            text-decoration: underline;
+        }}
+
+        .footer {{
+            text-align: center;
+            padding: 3rem 2rem;
+            margin-top: 4rem;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-muted);
+        }}
+
+        .footer a {{
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s ease;
+        }}
+
+        .footer a:hover {{
+            color: var(--primary-teal);
+        }}
+
+        .footer .meta {{
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            font-family: 'JetBrains Mono', monospace;
+        }}
+
+        @media (max-width: 768px) {{
+            .container {{
+                padding: 1rem;
+            }}
+            .header {{
+                padding: 2rem 1rem;
+            }}
+            .section-title {{
+                font-size: 1.5rem;
+            }}
+        }}
+
+        @keyframes fadeInUp {{
+            from {{
+                opacity: 0;
+                transform: translateY(20px);
+            }}
+            to {{
+                opacity: 1;
+                transform: translateY(0);
+            }}
+        }}
+
+        .animate-in {{
+            animation: fadeInUp 0.6s ease-out forwards;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header animate-in">
+            <h1>Clinical Trial Outcome Prediction</h1>
+            <p class="subtitle">Machine Learning Pipeline Results Dashboard</p>
+            <p class="meta">{subtitle}</p>
+        </header>
+
+        <div class="metrics-grid animate-in">
+            <div class="metric-card best">
+                <div class="metric-label">Best Model</div>
+                <div class="metric-value">{best_model_name}</div>
+            </div>
+            <div class="metric-card roc">
+                <div class="metric-label">ROC AUC Score</div>
+                <div class="metric-value">{best_model_roc_auc}</div>
+            </div>
+            <div class="metric-card f1">
+                <div class="metric-label">F1 Score</div>
+                <div class="metric-value">{best_model_f1}</div>
+            </div>
+        </div>
+
+        {content}
+
+        <footer class="footer">
+            <p>ML Pipeline Dashboard · Generated from Pipeline Results</p>
+            {footer_meta}
+            <p style="margin-top: 1rem; font-size: 0.85rem;">
+                AIPI 520 Project 2 · 2025
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
