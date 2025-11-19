@@ -1,0 +1,239 @@
+name: ML Pipeline
+run-name: "${{ github.event_name == 'workflow_dispatch' && format('ML Pipeline - {0} studies', github.event.inputs.max_studies) || format('ML Pipeline - {0}', github.ref_name) }}"
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'models/**'
+      - 'scripts/**'
+      - 'src/**'
+      - 'requirements.txt'
+      - 'run_pipeline.py'
+      - '.github/workflows/ml-pipeline.yml'
+  workflow_dispatch:
+    inputs:
+      max_studies:
+        description: 'Maximum antibody trials to collect'
+        required: false
+        default: '50000'
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  MAX_STUDIES: ${{ github.event.inputs.max_studies || '50000' }}
+
+jobs:
+  # Stage 1: Data Collection & Feature Engineering
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create data directory
+        run: mkdir -p data
+
+      - name: Cache prepared feature data
+        uses: actions/cache@v4
+        id: cache-features
+        with:
+          path: data/clinical_trials_features.csv
+          key: clinical-trials-features-${{ env.MAX_STUDIES }}
+
+      - name: Collect data and engineer features
+        if: steps.cache-features.outputs.cache-hit != 'true'
+        run: python run_pipeline.py --steps collect label features --max-studies ${{ env.MAX_STUDIES }}
+
+      - name: Create data preparation summary
+        run: |
+          if [ "${{ steps.cache-features.outputs.cache-hit }}" == "true" ]; then
+            echo "# Data Preparation Complete (Cached)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Cache hit!** Using cached feature data" >> $GITHUB_STEP_SUMMARY
+            echo "Skipped data collection, labeling, and feature engineering" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "# Data Preparation Complete" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "**Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Generated Files" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -lh data/clinical_trials_features.csv >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Samples:** $(tail -n +2 data/clinical_trials_features.csv | wc -l) trials" >> $GITHUB_STEP_SUMMARY
+          echo "**Features:** $(head -1 data/clinical_trials_features.csv | tr ',' '\n' | wc -l) columns" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload feature data
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-data
+          path: data
+          retention-days: 1
+
+  # Stage 2: Train Models in Parallel (Matrix Strategy)
+  train:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        model:
+          - name: 'Logistic Regression'
+            code: 'lr'
+          - name: 'Decision Tree'
+            code: 'dt'
+          - name: 'Random Forest'
+            code: 'rf'
+          - name: 'Gradient Boosting'
+            code: 'gb'
+          - name: 'XGBoost'
+            code: 'xgb'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download feature data
+        uses: actions/download-artifact@v4
+        with:
+          name: feature-data
+          path: data
+
+      - name: Train ${{ matrix.model.name }}
+        run: |
+          python scripts/train_single_model.py \
+            ${{ matrix.model.code }} \
+            data/clinical_trials_features.csv \
+            models/
+
+      - name: Create model training summary
+        run: |
+          echo "# ${{ matrix.model.name }} Training Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat models/results_${{ matrix.model.code }}.json >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload model and results
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-${{ matrix.model.code }}
+          path: |
+            models/${{ matrix.model.code }}_model.pkl
+            models/results_${{ matrix.model.code }}.json
+          retention-days: 30
+
+  # Stage 3: Aggregate Results and Compare
+  aggregate:
+    needs: train
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install pandas plotly
+
+      - name: Download all model results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: model-*
+          merge-multiple: true
+          path: models
+
+      - name: Generate report (CSV + HTML)
+        run: |
+          python scripts/generate_report.py models reports/model_comparison.csv docs/index.html \
+            --timestamp "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
+            --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --repo "${{ github.repository }}"
+
+      - name: Deploy dashboard
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          publish_branch: gh-pages
+          commit_message: "Dashboard: ${{ env.MAX_STUDIES }} trials"
+
+      - name: Commit results
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add models/*.pkl reports/model_comparison.csv docs/index.html || true
+          if ! git diff --staged --quiet; then
+            git commit -m "Pipeline results: ${{ env.MAX_STUDIES }} trials - $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Create pipeline summary
+        run: |
+          echo "# ML Pipeline Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
+          echo "- **Models Trained:** 5 (in parallel)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f reports/model_comparison.csv ]; then
+            # Extract best model info
+            BEST_MODEL=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f1)
+            BEST_AUC=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f6)
+
+            echo "## Best Model" >> $GITHUB_STEP_SUMMARY
+            echo "**${BEST_MODEL}** with ROC AUC: **${BEST_AUC}**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "## Model Comparison" >> $GITHUB_STEP_SUMMARY
+            echo '```csv' >> $GITHUB_STEP_SUMMARY
+            cat reports/model_comparison.csv >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "## Live Dashboard" >> $GITHUB_STEP_SUMMARY
+            echo "View the interactive results at:" >> $GITHUB_STEP_SUMMARY
+            echo "**https://jonasneves.github.io/aipi520-project2/**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "WARNING: Model comparison report not found" >> $GITHUB_STEP_SUMMARY
+          fi
