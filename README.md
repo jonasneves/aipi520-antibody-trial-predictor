@@ -118,8 +118,6 @@ python scripts/generate_report.py results/metrics_summary.json docs/index.html
 # View: open docs/index.html
 ```
 
-See `docs/ANTIBODY_FOCUS.md` for antibody-specific rationale.
-
 ## AI Usage Acknowledgment
 
 This project was developed with assistance from AI tools (Claude/Anthropic) for code development, documentation, and domain knowledge research. All code and analysis were reviewed, tested, and thoroughly understood by the team. The team takes full responsibility for the implementation and can explain all design decisions.
