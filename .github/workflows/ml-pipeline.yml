@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       max_studies:
-        description: 'Maximum antibody trials to collect'
+        description: 'Maximum trials to collect (0 = unlimited)'
         required: false
         default: '50000'
         type: string
@@ -27,6 +27,7 @@ permissions:
 
 env:
   MAX_STUDIES: ${{ github.event.inputs.max_studies || '50000' }}
+  CACHE_KEY_SUFFIX: ${{ github.event.inputs.max_studies == '0' && 'unlimited' || github.event.inputs.max_studies || '50000' }}
 
 jobs:
   # Stage 1a: Data Collection & Labeling
@@ -50,8 +51,8 @@ jobs:
       - name: Check for cached raw data in S3
         id: s3-cache
         run: |
-          FEATURE_KEY="features/antibody_phase23_${{ env.MAX_STUDIES }}.csv"
-          RAW_KEY="raw_data/phase23_trials_${{ env.MAX_STUDIES }}.json"
+          FEATURE_KEY="features/antibody_phase23_${{ env.CACHE_KEY_SUFFIX }}.csv"
+          RAW_KEY="raw_data/phase23_trials_${{ env.CACHE_KEY_SUFFIX }}.json"
 
           # Check for raw data
           if aws s3 ls "s3://aipi520-antibody-trial-predictor/$RAW_KEY" 2>/dev/null; then
@@ -86,7 +87,8 @@ jobs:
 
       - name: Collect data from API
         if: steps.s3-cache.outputs.raw-cache-hit != 'true'
-        run: python run_pipeline.py --steps collect --max-studies ${{ env.MAX_STUDIES }}
+        run: |
+          python run_pipeline.py --steps collect --max-studies ${{ env.MAX_STUDIES }}
 
       - name: Upload raw data to S3
         if: steps.s3-cache.outputs.raw-cache-hit != 'true'
@@ -114,7 +116,11 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Data Source:** ClinicalTrials.gov API (collected fresh)" >> $GITHUB_STEP_SUMMARY
           fi
-          echo "**Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ env.MAX_STUDIES }}" = "0" ]; then
+            echo "**Max Studies:** Unlimited (all available)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "## Generated Files" >> $GITHUB_STEP_SUMMARY

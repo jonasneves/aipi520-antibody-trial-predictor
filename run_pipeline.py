@@ -49,10 +49,15 @@ def run_data_collection(max_studies=5000, force_download=False):
     Step 1: Collect monoclonal antibody trial data
 
     Args:
-        max_studies: Maximum number of studies to collect
+        max_studies: Maximum number of studies to collect (0 = unlimited)
         force_download: Force re-download even if data exists
     """
     print_header("STEP 1: DATA COLLECTION")
+
+    # Handle unlimited collection
+    if max_studies == 0:
+        max_studies = 999999
+        print("Collecting unlimited studies (no max limit)")
 
     data_file = "data/completed_phase2_3_trials.csv"
 
@@ -85,7 +90,7 @@ def run_data_collection(max_studies=5000, force_download=False):
         )
     }
 
-    print(f"Fetching {max_studies} clinical trials...")
+    print(f"Fetching up to {max_studies} clinical trials...")
     print("This may take several minutes depending on network speed...")
 
     start_time = time.time()
