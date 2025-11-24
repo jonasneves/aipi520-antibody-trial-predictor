@@ -199,6 +199,7 @@ class ClinicalTrialsAPI:
         # Status
         status_module = protocol.get('statusModule', {})
         overall_status = status_module.get('overallStatus', '')
+        why_stopped = status_module.get('whyStopped', '')
         start_date = get_nested(status_module, 'startDateStruct', 'date')
         completion_date = get_nested(status_module, 'completionDateStruct', 'date')
 
@@ -235,6 +236,7 @@ class ClinicalTrialsAPI:
             'nct_id': nct_id,
             'brief_title': brief_title,
             'overall_status': overall_status,
+            'why_stopped': why_stopped,
             'start_date': start_date,
             'completion_date': completion_date,
             'study_type': study_type,

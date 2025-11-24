@@ -381,10 +381,6 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-
-            echo "## Live Dashboard" >> $GITHUB_STEP_SUMMARY
-            echo "View the interactive results at:" >> $GITHUB_STEP_SUMMARY
-            echo "**https://jonasneves.github.io/aipi520-project2/**" >> $GITHUB_STEP_SUMMARY
           else
             echo "WARNING: Model comparison report not found" >> $GITHUB_STEP_SUMMARY
           fi
