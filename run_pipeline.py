@@ -69,10 +69,13 @@ def run_data_collection(max_studies=5000, force_download=False):
     print("Initializing ClinicalTrials.gov API client...")
     api = ClinicalTrialsAPI(output_dir="data")
 
-    # Query parameters for Phase 2 and 3 trials with definitive outcomes
     query_params = {
         "query.term": (
             "(AREA[Phase]PHASE2 OR AREA[Phase]PHASE3) AND "
+            "AREA[StudyType]INTERVENTIONAL AND "
+            "(AREA[InterventionName]*mab OR AREA[InterventionName]*zumab OR "
+            "AREA[InterventionName]*umab OR AREA[InterventionName]*ximab OR "
+            "AREA[InterventionName]antibody OR AREA[InterventionName]monoclonal) AND "
             "("
             "AREA[OverallStatus]COMPLETED OR "
             "AREA[OverallStatus]TERMINATED OR "

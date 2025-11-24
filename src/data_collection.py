@@ -171,27 +171,6 @@ class ClinicalTrialsAPI:
                    for phase in phases)
         ]
 
-    def filter_antibody_trials(self, studies: List[Dict]) -> List[Dict]:
-        """
-        Filter studies to only include monoclonal antibody trials
-
-        Args:
-            studies: List of study dictionaries
-
-        Returns:
-            Filtered list containing only antibody trials
-        """
-        antibody_trials = []
-
-        for study in studies:
-            interventions = study.get('protocolSection', {}).get('armsInterventionsModule', {}).get('interventions', [])
-
-            # Check if any intervention is an antibody
-            if any(is_antibody_intervention(intervention.get('name', '')) for intervention in interventions):
-                antibody_trials.append(study)
-
-        return antibody_trials
-
     def extract_basic_features(self, study: Dict) -> Dict:
         """
         Extract basic features from a study for initial analysis
@@ -299,39 +278,36 @@ def main():
     """Main function to demonstrate data collection for antibody trials"""
     api = ClinicalTrialsAPI(output_dir="../data")
 
-    print("\n=== Collecting Completed Phase 2/3 Trials ===")
+    print("\n=== Collecting Monoclonal Antibody Phase 2/3 Trials ===")
     query_params = {
-        "query.term": "AREA[OverallStatus]COMPLETED AND (AREA[Phase]PHASE2 OR AREA[Phase]PHASE3)"
+        "query.term": (
+            "(AREA[Phase]PHASE2 OR AREA[Phase]PHASE3) AND "
+            "AREA[StudyType]INTERVENTIONAL AND "
+            "(AREA[InterventionName]*mab OR AREA[InterventionName]*zumab OR "
+            "AREA[InterventionName]*umab OR AREA[InterventionName]*ximab OR "
+            "AREA[InterventionName]antibody OR AREA[InterventionName]monoclonal) AND "
+            "AREA[OverallStatus]COMPLETED"
+        )
     }
 
     studies = api.search_studies(query_params=query_params, max_studies=5000)
 
     if studies:
-        print(f"\n=== Filtering for Monoclonal Antibody Trials ===")
-        antibody_studies = api.filter_antibody_trials(studies)
-        print(f"Found {len(antibody_studies)} antibody trials out of {len(studies)} total trials")
-        print(f"Antibody percentage: {len(antibody_studies)/len(studies)*100:.1f}%")
+        print(f"Found {len(studies)} antibody trials")
 
-        # Save all trials with antibody detection
-        df_all = api.save_studies_to_csv(studies, "all_trials_with_antibody_detection.csv")
+        df = api.save_studies_to_csv(studies, "antibody_trials.csv")
+        api.save_raw_json(studies, "antibody_trials_raw.json")
 
-        # Save antibody-only trials
-        df_antibody = api.save_studies_to_csv(antibody_studies, "antibody_trials_only.csv")
-
-        # Save raw JSON for detailed analysis
-        api.save_raw_json(antibody_studies, "antibody_trials_raw.json")
-
-        # Print summary statistics
         print("\n=== Antibody Trial Summary Statistics ===")
-        print(f"Total antibody trials: {len(df_antibody)}")
+        print(f"Total antibody trials: {len(df)}")
         print(f"\nAntibody type distribution:")
-        print(df_antibody['antibody_type'].value_counts())
+        print(df['antibody_type'].value_counts())
         print(f"\nPhase distribution:")
-        print(df_antibody['phases'].value_counts())
+        print(df['phases'].value_counts())
         print(f"\nSponsor class distribution:")
-        print(df_antibody['sponsor_class'].value_counts())
+        print(df['sponsor_class'].value_counts())
         print(f"\nTop 10 antibodies:")
-        print(df_antibody['antibody_name'].value_counts().head(10))
+        print(df['antibody_name'].value_counts().head(10))
 
 
 if __name__ == "__main__":
