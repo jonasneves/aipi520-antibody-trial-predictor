@@ -47,88 +47,107 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Check for cached features in S3
+      - name: Check for cached raw data in S3
         id: s3-cache
         run: |
-          S3_KEY="features/antibody_phase23_${{ env.MAX_STUDIES }}.csv"
-          if aws s3 ls "s3://aipi520-antibody-trial-predictor/$S3_KEY" 2>/dev/null; then
-            echo "cache-hit=true" >> $GITHUB_OUTPUT
-            echo "s3-key=$S3_KEY" >> $GITHUB_OUTPUT
-            echo "Found cached features in S3, skipping data collection"
+          FEATURE_KEY="features/antibody_phase23_${{ env.MAX_STUDIES }}.csv"
+          RAW_KEY="raw_data/phase23_trials_${{ env.MAX_STUDIES }}.json"
+
+          # Check for raw data
+          if aws s3 ls "s3://aipi520-antibody-trial-predictor/$RAW_KEY" 2>/dev/null; then
+            echo "raw-cache-hit=true" >> $GITHUB_OUTPUT
+            echo "s3-key=$FEATURE_KEY" >> $GITHUB_OUTPUT
+            echo "raw-s3-key=$RAW_KEY" >> $GITHUB_OUTPUT
+            echo "Found cached raw data in S3, will skip API collection"
           else
-            echo "cache-hit=false" >> $GITHUB_OUTPUT
-            echo "s3-key=$S3_KEY" >> $GITHUB_OUTPUT
+            echo "raw-cache-hit=false" >> $GITHUB_OUTPUT
+            echo "s3-key=$FEATURE_KEY" >> $GITHUB_OUTPUT
+            echo "raw-s3-key=$RAW_KEY" >> $GITHUB_OUTPUT
             echo "No cache found, will collect data from API"
           fi
 
       - name: Set up Python 3.11
-        if: steps.s3-cache.outputs.cache-hit != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
       - name: Install dependencies
-        if: steps.s3-cache.outputs.cache-hit != 'true'
         run: pip install -r requirements.txt
 
       - name: Create data directory
-        if: steps.s3-cache.outputs.cache-hit != 'true'
         run: mkdir -p data
 
-      - name: Collect and label data
-        if: steps.s3-cache.outputs.cache-hit != 'true'
-        run: python run_pipeline.py --steps collect label --max-studies ${{ env.MAX_STUDIES }}
+      - name: Download raw data from S3
+        if: steps.s3-cache.outputs.raw-cache-hit == 'true'
+        run: |
+          aws s3 cp "s3://aipi520-antibody-trial-predictor/${{ steps.s3-cache.outputs.raw-s3-key }}" data/completed_phase2_3_trials_raw.json
+          echo "Downloaded cached raw data from S3"
+
+      - name: Collect data from API
+        if: steps.s3-cache.outputs.raw-cache-hit != 'true'
+        run: python run_pipeline.py --steps collect --max-studies ${{ env.MAX_STUDIES }}
+
+      - name: Upload raw data to S3
+        if: steps.s3-cache.outputs.raw-cache-hit != 'true'
+        run: |
+          aws s3 cp data/completed_phase2_3_trials_raw.json "s3://aipi520-antibody-trial-predictor/${{ steps.s3-cache.outputs.raw-s3-key }}"
+          echo "Uploaded raw data to S3 for future use"
+
+      - name: Label data
+        run: python run_pipeline.py --steps label
 
       - name: Create collection summary
         run: |
-          if [ "${{ steps.s3-cache.outputs.cache-hit }}" == "true" ]; then
-            echo "# Data Collection Skipped (S3 Cache Hit)" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.s3-cache.outputs.raw-cache-hit }}" == "true" ]; then
+            echo "# Data Collection (Raw Data Cached)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Cached features found in S3!**" >> $GITHUB_STEP_SUMMARY
-            echo "Skipping data collection from ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
+            echo "**Raw data downloaded from S3 cache**" >> $GITHUB_STEP_SUMMARY
+            echo "Skipped 10-minute API collection" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**S3 Key:** ${{ steps.s3-cache.outputs.s3-key }}" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "# Data Collection Complete" >> $GITHUB_STEP_SUMMARY
+            echo "**S3 Key:** ${{ steps.s3-cache.outputs.raw-s3-key }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
-            echo "**Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            echo "## Generated Files" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            ls -lh data/clinical_trials_binary.csv >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            SAMPLES=$(tail -n +2 data/clinical_trials_binary.csv | wc -l)
-            RAW_FEATURES=$(head -1 data/clinical_trials_binary.csv | tr ',' '\n' | wc -l)
-
-            echo "**Samples:** $SAMPLES trials" >> $GITHUB_STEP_SUMMARY
-            echo "**Raw Columns:** $RAW_FEATURES" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            echo "<details>" >> $GITHUB_STEP_SUMMARY
-            echo "<summary>View Sample Data (first 3 rows)</summary>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo '```csv' >> $GITHUB_STEP_SUMMARY
-            head -4 data/clinical_trials_binary.csv >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            echo "<details>" >> $GITHUB_STEP_SUMMARY
-            echo "<summary>View All Raw Columns ($RAW_FEATURES total)</summary>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            head -1 data/clinical_trials_binary.csv | tr ',' '\n' | nl >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
           fi
 
+          echo "# Data Labeling Complete" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.s3-cache.outputs.raw-cache-hit }}" != "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Data Source:** ClinicalTrials.gov API (collected fresh)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "**Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## Generated Files" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -lh data/clinical_trials_binary.csv >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          SAMPLES=$(tail -n +2 data/clinical_trials_binary.csv | wc -l)
+          RAW_FEATURES=$(head -1 data/clinical_trials_binary.csv | tr ',' '\n' | wc -l)
+
+          echo "**Samples:** $SAMPLES trials" >> $GITHUB_STEP_SUMMARY
+          echo "**Raw Columns:** $RAW_FEATURES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "<details>" >> $GITHUB_STEP_SUMMARY
+          echo "<summary>View Sample Data (first 3 rows)</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```csv' >> $GITHUB_STEP_SUMMARY
+          head -4 data/clinical_trials_binary.csv >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "<details>" >> $GITHUB_STEP_SUMMARY
+          echo "<summary>View All Raw Columns ($RAW_FEATURES total)</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          head -1 data/clinical_trials_binary.csv | tr ',' '\n' | nl >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+
       - name: Upload raw labeled data
-        if: steps.s3-cache.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: raw-labeled-data
@@ -145,8 +164,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
       - name: Create data directory
         run: mkdir -p data
+
+      - name: Download raw labeled data
+        uses: actions/download-artifact@v4
+        with:
+          name: raw-labeled-data
+          path: data
+
+      - name: Engineer features
+        run: python run_pipeline.py --steps features
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -154,54 +191,17 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Download cached features from S3
-        if: needs.collect.outputs.cache-hit == 'true'
-        run: |
-          aws s3 cp "s3://aipi520-antibody-trial-predictor/${{ needs.collect.outputs.s3-key }}" data/clinical_trials_features.csv
-          echo "Downloaded cached features from S3"
-
-      - name: Set up Python 3.11
-        if: needs.collect.outputs.cache-hit != 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        if: needs.collect.outputs.cache-hit != 'true'
-        run: pip install -r requirements.txt
-
-      - name: Download raw labeled data
-        if: needs.collect.outputs.cache-hit != 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: raw-labeled-data
-          path: data
-
-      - name: Engineer features
-        if: needs.collect.outputs.cache-hit != 'true'
-        run: python run_pipeline.py --steps features
-
       - name: Upload features to S3
-        if: needs.collect.outputs.cache-hit != 'true'
         run: |
           aws s3 cp data/clinical_trials_features.csv "s3://aipi520-antibody-trial-predictor/${{ needs.collect.outputs.s3-key }}"
-          echo "Uploaded features to S3"
+          echo "Uploaded features to S3 for archival"
 
       - name: Create engineering summary
         run: |
-          if [ "${{ needs.collect.outputs.cache-hit }}" == "true" ]; then
-            echo "# Feature Engineering Complete (Cached from S3)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**S3 cache hit!** Downloaded cached feature data from S3" >> $GITHUB_STEP_SUMMARY
-            echo "Skipped feature engineering" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "# Feature Engineering Complete" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Uploaded to:** S3 for future use" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "# Feature Engineering Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Uploaded to:** S3 for archival" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "## Generated Files" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

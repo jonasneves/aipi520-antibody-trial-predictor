@@ -90,11 +90,12 @@ class TrialOutcomeLabeler:
             return 'exclude'
 
         # For terminated/withdrawn/suspended trials, check reason
-        if not why_stopped:
+        # Handle NaN and empty values
+        if pd.isna(why_stopped) or not why_stopped or why_stopped == '':
             # No reason provided - keep as failure (conservative)
             return 'failure'
 
-        why_stopped_lower = why_stopped.lower()
+        why_stopped_lower = str(why_stopped).lower()
 
         # TRUE FAILURES: Efficacy or safety related
         if any(term in why_stopped_lower for term in ['safety', 'adverse', 'toxicity', 'death']):
@@ -127,10 +128,11 @@ class TrialOutcomeLabeler:
         if status.upper() not in self.FAILURE_STATUSES:
             return 'not_terminated', 'N/A'
 
-        if not why_stopped:
+        # Handle NaN and empty values
+        if pd.isna(why_stopped) or not why_stopped or why_stopped == '':
             return 'failure', 'unknown_reason'
 
-        why_stopped_lower = why_stopped.lower()
+        why_stopped_lower = str(why_stopped).lower()
 
         # Categorize termination reasons
         if any(term in why_stopped_lower for term in ['safety', 'adverse', 'toxicity', 'death']):
