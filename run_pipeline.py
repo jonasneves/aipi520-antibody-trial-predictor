@@ -150,6 +150,15 @@ def run_feature_engineering():
     print_header("STEP 3: FEATURE ENGINEERING")
 
     data_file = "data/clinical_trials_binary.csv"
+    features_file = "data/clinical_trials_features.csv"
+
+    # Check if features already exist
+    if is_valid_csv(features_file):
+        print(f"✓ Using cached features: {features_file}")
+        df_modeling = pd.read_csv(features_file)
+        print(f"  - Samples: {len(df_modeling)} trials")
+        print(f"  - Features: {len(df_modeling.columns)} columns")
+        return
 
     if not is_valid_csv(data_file):
         print(f"Error: Valid labeled data not found at {data_file}")
@@ -177,10 +186,10 @@ def run_feature_engineering():
             df_modeling[label_col] = df[label_col]
 
     # Save engineered features
-    df_modeling.to_csv("data/clinical_trials_features.csv", index=False)
+    df_modeling.to_csv(features_file, index=False)
 
     print(f"\n✓ Feature engineering complete!")
-    print(f"  - Features file: data/clinical_trials_features.csv")
+    print(f"  - Features file: {features_file}")
     print(f"  - Total features: {len(df_modeling.columns) - 2}")  # Excluding label columns
     print(f"  - Samples: {len(df_modeling)}")
 
