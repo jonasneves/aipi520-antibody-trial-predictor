@@ -83,6 +83,16 @@ def calculate_dataset_statistics(results):
     class_0_count = cm[0][0] + cm[0][1]
     class_1_count = cm[1][0] + cm[1][1]
 
+    # Calculate actual failure rate
+    failure_rate = (class_0_count / test_size) * 100
+
+    # Get feature count from best model if available
+    feature_count = 'TBD'
+    if results[0].get('feature_importance'):
+        feature_data = results[0]['feature_importance']
+        if 'feature_names' in feature_data:
+            feature_count = len(feature_data['feature_names'])
+
     return {
         'total_samples': total_samples,
         'train_size': train_size,
@@ -90,7 +100,9 @@ def calculate_dataset_statistics(results):
         'class_0_count': class_0_count,
         'class_1_count': class_1_count,
         'class_0_pct': (class_0_count / test_size) * 100,
-        'class_1_pct': (class_1_count / test_size) * 100
+        'class_1_pct': (class_1_count / test_size) * 100,
+        'failure_rate': failure_rate,
+        'feature_count': feature_count
     }
 
 
@@ -325,7 +337,7 @@ def build_content_sections(results, dataset_stats, best_model):
                                 </span>
                             </span>
                         </h3>
-                        <p>Predict probability of success for Phase 2 & 3 antibody clinical trials. With 70% failure rate in Phase 2 and costs of $10-100M+, early prediction can save pharmaceutical companies significant resources.</p>
+                        <p>Predict probability of success for Phase 2 & 3 antibody clinical trials. With {dataset_stats['failure_rate']:.1f}% failure rate observed in our dataset and costs of $10-100M+ per trial, early prediction can save pharmaceutical companies significant resources.</p>
                     </div>
                     <div class="info-block">
                         <h3>Data Source</h3>
@@ -335,12 +347,13 @@ def build_content_sections(results, dataset_stats, best_model):
                     </div>
                     <div class="info-block">
                         <h3>Success Labeling Strategy</h3>
-                        <p><strong>Binary Classification Based on Trial Status:</strong></p>
+                        <p><strong>Refined Binary Classification:</strong></p>
                         <ul>
                             <li><strong>Success (1):</strong> COMPLETED, APPROVED_FOR_MARKETING, AVAILABLE</li>
-                            <li><strong>Failure (0):</strong> TERMINATED, WITHDRAWN, SUSPENDED, NO_LONGER_AVAILABLE</li>
-                            <li><strong>Excluded:</strong> Ambiguous statuses</li>
+                            <li><strong>Failure (0):</strong> TERMINATED/WITHDRAWN/SUSPENDED for efficacy or safety reasons</li>
+                            <li><strong>Excluded:</strong> Trials terminated for administrative reasons (funding, enrollment, business decisions)</li>
                         </ul>
+                        <p style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">This approach focuses on efficacy outcomes rather than administrative completion.</p>
                     </div>
                 </div>
             </div>
@@ -372,7 +385,7 @@ def build_content_sections(results, dataset_stats, best_model):
                         <ul>
                             <li><strong>Source:</strong> ClinicalTrials.gov official API</li>
                             <li><strong>Validation:</strong> Stratified train/test split</li>
-                            <li><strong>Features:</strong> 91 domain-specific engineered features</li>
+                            <li><strong>Features:</strong> {dataset_stats['feature_count']} domain-specific engineered features</li>
                         </ul>
                     </div>
                 </div>
@@ -380,21 +393,22 @@ def build_content_sections(results, dataset_stats, best_model):
         ''')
 
     # Feature engineering card
-    sections.append('''
+    feature_count_display = dataset_stats['feature_count'] if dataset_stats else 'TBD'
+    sections.append(f'''
             <div class="card">
                 <h3 style="margin-bottom: 0.75rem; color: var(--primary-cyan); font-size: 1.25rem; font-weight: 600;">
-                    Feature Engineering - 91 Features
+                    Feature Engineering - {feature_count_display} Features
                 </h3>
                 <p style="color: var(--text-body); margin-bottom: 1rem;">Comprehensive feature set extracted from clinical trial metadata:</p>
                 <div class="feature-pills">
                     <span class="pill">Trial Duration & Timeline</span>
                     <span class="pill">Enrollment Size</span>
                     <span class="pill">Study Phase (2 vs 3)</span>
+                    <span class="pill">Antibody Characteristics</span>
                     <span class="pill">Study Design Type</span>
-                    <span class="pill">Intervention Model</span>
-                    <span class="pill">Allocation Strategy</span>
-                    <span class="pill">Masking/Blinding</span>
-                    <span class="pill">Primary Purpose</span>
+                    <span class="pill">Sponsor Information</span>
+                    <span class="pill">Condition Categories</span>
+                    <span class="pill">Text Features (TF-IDF)</span>
                 </div>
             </div>
         </section>
