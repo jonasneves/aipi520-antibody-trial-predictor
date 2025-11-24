@@ -73,9 +73,6 @@ def run_data_collection(max_studies=5000, force_download=False):
         "query.term": (
             "(AREA[Phase]PHASE2 OR AREA[Phase]PHASE3) AND "
             "AREA[StudyType]INTERVENTIONAL AND "
-            "(AREA[InterventionName]*mab OR AREA[InterventionName]*zumab OR "
-            "AREA[InterventionName]*umab OR AREA[InterventionName]*ximab OR "
-            "AREA[InterventionName]antibody OR AREA[InterventionName]monoclonal) AND "
             "("
             "AREA[OverallStatus]COMPLETED OR "
             "AREA[OverallStatus]TERMINATED OR "
@@ -97,14 +94,16 @@ def run_data_collection(max_studies=5000, force_download=False):
 
     print(f"\nCollected {len(studies)} studies in {elapsed:.1f} seconds")
 
-    # Save to CSV and JSON
+    print("\nProcessing and filtering for antibody trials...")
     df = api.save_studies_to_csv(studies, "completed_phase2_3_trials.csv")
     api.save_raw_json(studies, "completed_phase2_3_trials_raw.json")
 
+    antibody_count = df['is_antibody'].sum() if 'is_antibody' in df.columns else 0
     print(f"\n✓ Data collection complete!")
     print(f"  - CSV file: data/completed_phase2_3_trials.csv")
     print(f"  - JSON file: data/completed_phase2_3_trials_raw.json")
     print(f"  - Total studies: {len(df)}")
+    print(f"  - Antibody trials: {antibody_count} ({antibody_count/len(df)*100:.1f}%)")
 
 
 def run_data_labeling():
