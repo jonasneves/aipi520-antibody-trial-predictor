@@ -68,6 +68,51 @@ class TrialOutcomeLabeler:
         else:
             return 'unlabeled'
 
+    def refine_label_by_termination(self, status: str, why_stopped: str = '') -> str:
+        """
+        Refine label based on termination reason to improve label quality.
+        Excludes trials terminated for administrative reasons (not efficacy-related).
+
+        Args:
+            status: Overall status of the trial
+            why_stopped: Reason for stopping (if terminated/withdrawn)
+
+        Returns:
+            Refined label: 'success', 'failure', or 'exclude'
+        """
+        status_upper = status.upper() if status else ''
+
+        # Non-terminated statuses
+        if status_upper in self.SUCCESS_STATUSES:
+            return 'success'
+
+        if status_upper not in self.FAILURE_STATUSES:
+            return 'exclude'
+
+        # For terminated/withdrawn/suspended trials, check reason
+        if not why_stopped:
+            # No reason provided - keep as failure (conservative)
+            return 'failure'
+
+        why_stopped_lower = why_stopped.lower()
+
+        # TRUE FAILURES: Efficacy or safety related
+        if any(term in why_stopped_lower for term in ['safety', 'adverse', 'toxicity', 'death']):
+            return 'failure'
+        if any(term in why_stopped_lower for term in ['efficacy', 'futility', 'lack of efficacy']):
+            return 'failure'
+
+        # EXCLUDE: Administrative reasons (not efficacy-related)
+        if any(term in why_stopped_lower for term in ['enrollment', 'recruit', 'accrual']):
+            return 'exclude'
+        if any(term in why_stopped_lower for term in ['funding', 'financial', 'budget', 'sponsor']):
+            return 'exclude'
+        if any(term in why_stopped_lower for term in ['business', 'strategic', 'commercial']):
+            return 'exclude'
+
+        # Unknown reason - keep as failure (conservative)
+        return 'failure'
+
     def label_by_termination_reason(self, status: str, why_stopped: str = '') -> Tuple[str, str]:
         """
         Provide more granular labeling based on termination reasons
@@ -159,46 +204,73 @@ class TrialOutcomeLabeler:
             if len(term_reasons) > 0:
                 print(term_reasons.value_counts())
 
-    def create_binary_labels(self, df: pd.DataFrame, include_ambiguous: bool = False) -> pd.DataFrame:
+    def create_binary_labels(self, df: pd.DataFrame, include_ambiguous: bool = False,
+                             use_refined_labels: bool = True) -> pd.DataFrame:
         """
-        Create binary labels (0/1) for modeling
+        Create binary labels (0/1) for modeling with optional label refinement
 
         Args:
             df: Labeled DataFrame
             include_ambiguous: Whether to keep ambiguous samples (will attempt to infer)
+            use_refined_labels: Whether to use refined labels that exclude administrative terminations
 
         Returns:
             DataFrame with binary labels
         """
-        # Start with primary labels
         df_binary = df.copy()
 
-        # Map to binary
-        label_map = {
-            'success': 1,
-            'failure': 0
-        }
+        if use_refined_labels and 'why_stopped' in df.columns:
+            print("\n=== Using Refined Labels (excluding administrative terminations) ===")
 
-        # Filter based on whether we include ambiguous
-        if not include_ambiguous:
-            df_binary = df_binary[df_binary['outcome_label'].isin(['success', 'failure'])]
+            # Apply refined labeling
+            df_binary['refined_label'] = df_binary.apply(
+                lambda row: self.refine_label_by_termination(
+                    row['overall_status'],
+                    row.get('why_stopped', '')
+                ),
+                axis=1
+            )
+
+            # Count excluded trials
+            n_excluded = (df_binary['refined_label'] == 'exclude').sum()
+            n_total = len(df_binary)
+
+            print(f"Excluded {n_excluded} trials ({n_excluded/n_total*100:.1f}%) terminated for administrative reasons")
+            print(f"  (funding, enrollment, business decisions - not efficacy-related)")
+
+            # Filter to success/failure only
+            df_binary = df_binary[df_binary['refined_label'].isin(['success', 'failure'])]
+
+            # Map to binary
+            label_map = {'success': 1, 'failure': 0}
+            df_binary['binary_outcome'] = df_binary['refined_label'].map(label_map)
+
         else:
-            # Try to infer labels for ambiguous cases
-            def infer_ambiguous(row):
-                if row['outcome_label'] in ['success', 'failure']:
-                    return label_map.get(row['outcome_label'], -1)
+            print("\n=== Using Standard Labels (status-based) ===")
 
-                # Use termination reason to infer failure
-                if 'termination_label' in row and row['termination_label'] == 'failure':
-                    return 0
-                else:
-                    return -1
+            # Map to binary
+            label_map = {'success': 1, 'failure': 0}
 
-            df_binary['binary_outcome'] = df_binary.apply(infer_ambiguous, axis=1)
-            df_binary = df_binary[df_binary['binary_outcome'] != -1]
+            # Filter based on whether we include ambiguous
+            if not include_ambiguous:
+                df_binary = df_binary[df_binary['outcome_label'].isin(['success', 'failure'])]
+            else:
+                # Try to infer labels for ambiguous cases
+                def infer_ambiguous(row):
+                    if row['outcome_label'] in ['success', 'failure']:
+                        return label_map.get(row['outcome_label'], -1)
 
-        if 'binary_outcome' not in df_binary.columns:
-            df_binary['binary_outcome'] = df_binary['outcome_label'].map(label_map)
+                    # Use termination reason to infer failure
+                    if 'termination_label' in row and row['termination_label'] == 'failure':
+                        return 0
+                    else:
+                        return -1
+
+                df_binary['binary_outcome'] = df_binary.apply(infer_ambiguous, axis=1)
+                df_binary = df_binary[df_binary['binary_outcome'] != -1]
+
+            if 'binary_outcome' not in df_binary.columns:
+                df_binary['binary_outcome'] = df_binary['outcome_label'].map(label_map)
 
         # Remove any rows that couldn't be mapped
         df_binary = df_binary.dropna(subset=['binary_outcome'])

@@ -50,7 +50,7 @@ jobs:
       - name: Check for cached features in S3
         id: s3-cache
         run: |
-          S3_KEY="features/v2_all_interventional_${{ env.MAX_STUDIES }}.csv"
+          S3_KEY="features/antibody_phase23_${{ env.MAX_STUDIES }}.csv"
           if aws s3 ls "s3://aipi520-antibody-trial-predictor/$S3_KEY" 2>/dev/null; then
             echo "cache-hit=true" >> $GITHUB_OUTPUT
             echo "s3-key=$S3_KEY" >> $GITHUB_OUTPUT
