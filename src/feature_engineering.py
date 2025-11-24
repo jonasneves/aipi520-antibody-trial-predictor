@@ -24,6 +24,7 @@ class TrialFeatureEngineer:
         self.label_encoders = {}
         self.scaler = StandardScaler()
         self.tfidf_vectorizers = {}
+        self.sponsor_counts = {}  # Store sponsor counts from training data
 
     def extract_all_features(self, df: pd.DataFrame, fit: bool = True) -> pd.DataFrame:
         """
@@ -44,7 +45,7 @@ class TrialFeatureEngineer:
         df_features = self._extract_trial_characteristics(df_features)
         df_features = self._extract_temporal_features(df_features)
         df_features = self._extract_enrollment_features(df_features)
-        df_features = self._extract_sponsor_features(df_features)
+        df_features = self._extract_sponsor_features(df_features, fit)
         df_features = self._extract_condition_features(df_features, fit)
         df_features = self._extract_intervention_features(df_features, fit)
         df_features = self._extract_antibody_features(df_features)
@@ -72,42 +73,20 @@ class TrialFeatureEngineer:
             # Count number of phases
             df['num_phases'] = sum(df[f'is_{p.lower()}'] for p in ['PHASE1', 'PHASE2', 'PHASE3', 'PHASE4', 'EARLY_PHASE1'])
 
-        # Results availability
-        if 'has_results' in df.columns:
-            df['has_results'] = df['has_results'].astype(int)
-
         return df
 
     def _extract_temporal_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Extract features related to timing and duration"""
-        date_columns = ['start_date', 'completion_date']
+        """Extract features related to timing"""
+        if 'start_date' in df.columns:
+            df['start_date_parsed'] = pd.to_datetime(df['start_date'], errors='coerce')
 
-        for col in date_columns:
-            if col in df.columns:
-                df[f'{col}_parsed'] = pd.to_datetime(df[col], errors='coerce')
-
-        # Calculate trial duration
-        if 'start_date_parsed' in df.columns and 'completion_date_parsed' in df.columns:
-            df['trial_duration_days'] = (
-                df['completion_date_parsed'] - df['start_date_parsed']
-            ).dt.days.clip(lower=0)
-
-            # Binned duration
-            df['duration_category'] = pd.cut(
-                df['trial_duration_days'],
-                bins=[0, 180, 365, 730, 1460, np.inf],
-                labels=['<6mo', '6mo-1yr', '1-2yr', '2-4yr', '>4yr']
-            )
-
-        # Start year features
         if 'start_date_parsed' in df.columns:
+            REFERENCE_YEAR = 2024
+
             df['start_year'] = df['start_date_parsed'].dt.year
             df['start_month'] = df['start_date_parsed'].dt.month
             df['start_quarter'] = df['start_date_parsed'].dt.quarter
-
-            # Recent vs older trials
-            current_year = datetime.now().year
-            df['years_since_start'] = current_year - df['start_year']
+            df['years_since_start'] = REFERENCE_YEAR - df['start_year']
             df['is_recent_trial'] = (df['years_since_start'] <= 5).astype(int)
 
         return df
@@ -120,22 +99,15 @@ class TrialFeatureEngineer:
         df['enrollment'] = pd.to_numeric(df['enrollment'], errors='coerce').fillna(0)
         df['enrollment_log'] = np.log1p(df['enrollment'])
 
-        # Binned enrollment size
         df['enrollment_category'] = pd.cut(
             df['enrollment'],
             bins=[0, 50, 100, 300, 1000, np.inf],
             labels=['very_small', 'small', 'medium', 'large', 'very_large']
         )
 
-        # Enrollment per year
-        if 'trial_duration_days' in df.columns:
-            df['enrollment_per_year'] = (
-                df['enrollment'] / (df['trial_duration_days'] / 365.25)
-            ).replace([np.inf, -np.inf], np.nan)
-
         return df
 
-    def _extract_sponsor_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _extract_sponsor_features(self, df: pd.DataFrame, fit: bool = True) -> pd.DataFrame:
         """Extract features related to sponsors and organizations"""
         if 'sponsor_class' in df.columns:
             # One-hot encode sponsor class
@@ -149,10 +121,11 @@ class TrialFeatureEngineer:
                 df['sponsor_class'].isin(['FED', 'OTHER', 'OTHER_GOV'])
             ).astype(int)
 
-        # Sponsor name features
         if 'sponsor_name' in df.columns:
-            sponsor_counts = df['sponsor_name'].value_counts()
-            df['sponsor_trial_count'] = df['sponsor_name'].map(sponsor_counts)
+            if fit:
+                self.sponsor_counts = df['sponsor_name'].value_counts().to_dict()
+
+            df['sponsor_trial_count'] = df['sponsor_name'].map(self.sponsor_counts).fillna(0)
             df['is_major_sponsor'] = (df['sponsor_trial_count'] > 20).astype(int)
 
         return df
@@ -372,10 +345,9 @@ class TrialFeatureEngineer:
         Returns:
             DataFrame with selected features ready for modeling
         """
-        # Define feature groups
         numeric_features = [
             'enrollment', 'enrollment_log', 'num_conditions', 'num_interventions',
-            'num_phases', 'trial_duration_days', 'sponsor_trial_count',
+            'num_phases', 'sponsor_trial_count',
             'start_year', 'years_since_start', 'phase_risk_score',
             'expected_success_rate', 'title_length', 'title_word_count'
         ]
@@ -387,15 +359,19 @@ class TrialFeatureEngineer:
             'is_combination_therapy', 'is_recent_trial', 'is_major_sponsor'
         ]
 
-        # Collect all feature columns
         condition_features = [col for col in df.columns if col.startswith('condition_')]
         intervention_features = [col for col in df.columns if col.startswith('intervention_')]
         tfidf_features = [col for col in df.columns if col.startswith('tfidf_')]
 
-        # Combine all features
+        antibody_features = [col for col in df.columns if
+                           col.startswith('antibody_') or
+                           (col.startswith('is_') and 'antibody' in col) or
+                           col == 'has_biomarker_selection']
+
         all_features = (
             numeric_features + categorical_features +
-            condition_features + intervention_features + tfidf_features
+            condition_features + intervention_features +
+            antibody_features + tfidf_features
         )
 
         # Select only features that exist

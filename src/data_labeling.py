@@ -68,24 +68,6 @@ class TrialOutcomeLabeler:
         else:
             return 'unlabeled'
 
-    def label_by_results(self, has_results: bool, status: str) -> str:
-        """
-        Label trial outcome based on whether results are posted
-
-        Args:
-            has_results: Boolean indicating if results are available
-            status: Overall status of the trial
-
-        Returns:
-            Label: 'success', 'failure', or 'ambiguous'
-        """
-        if has_results and status.upper() == 'COMPLETED':
-            return 'success'
-        elif status.upper() in self.FAILURE_STATUSES:
-            return 'failure'
-        else:
-            return 'ambiguous'
-
     def label_by_termination_reason(self, status: str, why_stopped: str = '') -> Tuple[str, str]:
         """
         Provide more granular labeling based on termination reasons
@@ -133,13 +115,6 @@ class TrialOutcomeLabeler:
 
         # Primary label based on status
         df['outcome_label'] = df['overall_status'].apply(self.label_by_status)
-
-        # Secondary label based on results availability
-        if 'has_results' in df.columns:
-            df['outcome_label_results'] = df.apply(
-                lambda row: self.label_by_results(row['has_results'], row['overall_status']),
-                axis=1
-            )
 
         # Termination reason analysis (if available)
         if 'why_stopped' in df.columns:
@@ -206,7 +181,6 @@ class TrialOutcomeLabeler:
 
         # Filter based on whether we include ambiguous
         if not include_ambiguous:
-            # Only keep clear success/failure cases
             df_binary = df_binary[df_binary['outcome_label'].isin(['success', 'failure'])]
         else:
             # Try to infer labels for ambiguous cases
@@ -214,13 +188,10 @@ class TrialOutcomeLabeler:
                 if row['outcome_label'] in ['success', 'failure']:
                     return label_map.get(row['outcome_label'], -1)
 
-                # Use secondary signals to infer
-                if 'outcome_label_results' in row and row['outcome_label_results'] == 'success':
-                    return 1
-                elif 'termination_label' in row and row['termination_label'] == 'failure':
+                # Use termination reason to infer failure
+                if 'termination_label' in row and row['termination_label'] == 'failure':
                     return 0
                 else:
-                    # Cannot infer, mark as -1 for removal or special handling
                     return -1
 
             df_binary['binary_outcome'] = df_binary.apply(infer_ambiguous, axis=1)
