@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 env:
   MAX_STUDIES: ${{ github.event.inputs.max_studies || '50000' }}
@@ -49,28 +50,52 @@ jobs:
       - name: Create data directory
         run: mkdir -p data
 
-      - name: Cache prepared feature data
-        uses: actions/cache@v4
-        id: cache-features
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          path: data/clinical_trials_features.csv
-          key: clinical-trials-features-${{ env.MAX_STUDIES }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Check for cached features in S3
+        id: s3-cache
+        run: |
+          S3_KEY="features/clinical_trials_features_${{ env.MAX_STUDIES }}.csv"
+          if aws s3 ls "s3://aipi520-antibody-trial-predictor/$S3_KEY" 2>/dev/null; then
+            echo "cache-hit=true" >> $GITHUB_OUTPUT
+            echo "s3-key=$S3_KEY" >> $GITHUB_OUTPUT
+          else
+            echo "cache-hit=false" >> $GITHUB_OUTPUT
+            echo "s3-key=$S3_KEY" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download cached features from S3
+        if: steps.s3-cache.outputs.cache-hit == 'true'
+        run: |
+          aws s3 cp "s3://aipi520-antibody-trial-predictor/${{ steps.s3-cache.outputs.s3-key }}" data/clinical_trials_features.csv
+          echo "Downloaded cached features from S3"
 
       - name: Collect data and engineer features
-        if: steps.cache-features.outputs.cache-hit != 'true'
+        if: steps.s3-cache.outputs.cache-hit != 'true'
         run: python run_pipeline.py --steps collect label features --max-studies ${{ env.MAX_STUDIES }}
+
+      - name: Upload features to S3
+        if: steps.s3-cache.outputs.cache-hit != 'true'
+        run: |
+          aws s3 cp data/clinical_trials_features.csv "s3://aipi520-antibody-trial-predictor/${{ steps.s3-cache.outputs.s3-key }}"
+          echo "Uploaded features to S3"
 
       - name: Create data preparation summary
         run: |
-          if [ "${{ steps.cache-features.outputs.cache-hit }}" == "true" ]; then
-            echo "# Data Preparation Complete (Cached)" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.s3-cache.outputs.cache-hit }}" == "true" ]; then
+            echo "# Data Preparation Complete (Cached from S3)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Cache hit!** Using cached feature data" >> $GITHUB_STEP_SUMMARY
+            echo "**S3 cache hit!** Downloaded cached feature data from S3" >> $GITHUB_STEP_SUMMARY
             echo "Skipped data collection, labeling, and feature engineering" >> $GITHUB_STEP_SUMMARY
           else
             echo "# Data Preparation Complete" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
+            echo "**Uploaded to:** S3 for future use" >> $GITHUB_STEP_SUMMARY
           fi
           echo "**Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
