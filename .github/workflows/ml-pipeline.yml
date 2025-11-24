@@ -29,10 +29,80 @@ env:
   MAX_STUDIES: ${{ github.event.inputs.max_studies || '50000' }}
 
 jobs:
-  # Stage 1: Data Collection & Feature Engineering
-  prepare:
+  # Stage 1a: Data Collection & Labeling
+  collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create data directory
+        run: mkdir -p data
+
+      - name: Collect and label data
+        run: python run_pipeline.py --steps collect label --max-studies ${{ env.MAX_STUDIES }}
+
+      - name: Create collection summary
+        run: |
+          echo "# Data Collection Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
+          echo "**Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## Generated Files" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -lh data/clinical_trials_binary.csv >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          SAMPLES=$(tail -n +2 data/clinical_trials_binary.csv | wc -l)
+          RAW_FEATURES=$(head -1 data/clinical_trials_binary.csv | tr ',' '\n' | wc -l)
+
+          echo "**Samples:** $SAMPLES trials" >> $GITHUB_STEP_SUMMARY
+          echo "**Raw Columns:** $RAW_FEATURES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "<details>" >> $GITHUB_STEP_SUMMARY
+          echo "<summary>View Sample Data (first 3 rows)</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```csv' >> $GITHUB_STEP_SUMMARY
+          head -4 data/clinical_trials_binary.csv >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "<details>" >> $GITHUB_STEP_SUMMARY
+          echo "<summary>View All Raw Columns ($RAW_FEATURES total)</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          head -1 data/clinical_trials_binary.csv | tr ',' '\n' | nl >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload raw labeled data
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-labeled-data
+          path: data
+          retention-days: 1
+
+  # Stage 1b: Feature Engineering
+  engineer:
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -74,9 +144,16 @@ jobs:
           aws s3 cp "s3://aipi520-antibody-trial-predictor/${{ steps.s3-cache.outputs.s3-key }}" data/clinical_trials_features.csv
           echo "Downloaded cached features from S3"
 
-      - name: Collect data and engineer features
+      - name: Download raw labeled data
         if: steps.s3-cache.outputs.cache-hit != 'true'
-        run: python run_pipeline.py --steps collect label features --max-studies ${{ env.MAX_STUDIES }}
+        uses: actions/download-artifact@v4
+        with:
+          name: raw-labeled-data
+          path: data
+
+      - name: Engineer features
+        if: steps.s3-cache.outputs.cache-hit != 'true'
+        run: python run_pipeline.py --steps features
 
       - name: Upload features to S3
         if: steps.s3-cache.outputs.cache-hit != 'true'
@@ -84,21 +161,21 @@ jobs:
           aws s3 cp data/clinical_trials_features.csv "s3://aipi520-antibody-trial-predictor/${{ steps.s3-cache.outputs.s3-key }}"
           echo "Uploaded features to S3"
 
-      - name: Create data preparation summary
+      - name: Create engineering summary
         run: |
           if [ "${{ steps.s3-cache.outputs.cache-hit }}" == "true" ]; then
-            echo "# Data Preparation Complete (Cached from S3)" >> $GITHUB_STEP_SUMMARY
+            echo "# Feature Engineering Complete (Cached from S3)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**S3 cache hit!** Downloaded cached feature data from S3" >> $GITHUB_STEP_SUMMARY
-            echo "Skipped data collection, labeling, and feature engineering" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "# Data Preparation Complete" >> $GITHUB_STEP_SUMMARY
+            echo "Skipped feature engineering" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "# Feature Engineering Complete" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Uploaded to:** S3 for future use" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           fi
-          echo "**Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+
           echo "## Generated Files" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           ls -lh data/clinical_trials_features.csv >> $GITHUB_STEP_SUMMARY
@@ -106,10 +183,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           SAMPLES=$(tail -n +2 data/clinical_trials_features.csv | wc -l)
-          FEATURES=$(head -1 data/clinical_trials_features.csv | tr ',' '\n' | wc -l)
+          ENG_FEATURES=$(head -1 data/clinical_trials_features.csv | tr ',' '\n' | wc -l)
 
           echo "**Samples:** $SAMPLES trials" >> $GITHUB_STEP_SUMMARY
-          echo "**Features:** $FEATURES columns" >> $GITHUB_STEP_SUMMARY
+          echo "**Engineered Features:** $ENG_FEATURES columns" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "<details>" >> $GITHUB_STEP_SUMMARY
@@ -122,7 +199,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "<details>" >> $GITHUB_STEP_SUMMARY
-          echo "<summary>View All Features ($FEATURES total)</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "<summary>View All Engineered Features ($ENG_FEATURES total)</summary>" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           head -1 data/clinical_trials_features.csv | tr ',' '\n' | nl >> $GITHUB_STEP_SUMMARY
@@ -138,7 +215,7 @@ jobs:
 
   # Stage 2: Train Models in Parallel (Matrix Strategy)
   train:
-    needs: prepare
+    needs: engineer
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
