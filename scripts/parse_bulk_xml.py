@@ -113,22 +113,18 @@ def convert_to_csv_format(trials: List[Dict], csv_file: Path):
     This creates the same format as data_collection.save_studies_to_csv()
     """
     import pandas as pd
-    from data_collection import ClinicalTrialsAPI
+    from data_collection import analyze_antibody
 
     print(f"\nConverting to CSV format for pipeline compatibility...")
 
-    # Create API instance just for the extract_basic_features method
-    api = ClinicalTrialsAPI()
+    # The trials from XML are already in a flat format, we just need to
+    # classify antibody types and create the CSV
 
-    # The trials from XML are already in a flat format, but we need to
-    # convert them to match the protocolSection format that extract_basic_features expects
-
-    # Actually, let's just create the CSV directly since we already have flat data
     records = []
     for trial in trials:
         # Extract antibody type and other features
         intervention_names = trial.get("intervention_names", "")
-        is_antibody, antibody_type = api._classify_antibody_type(intervention_names)
+        is_antibody, antibody_type = analyze_antibody(intervention_names)
 
         record = {
             "nct_id": trial.get("nct_id", ""),
