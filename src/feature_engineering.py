@@ -205,19 +205,17 @@ class TrialFeatureEngineer:
     def _extract_antibody_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Extract antibody-specific features for monoclonal antibody trials
+
+        Note: is_antibody feature is no longer created since the dataset is pre-filtered
+        to only include antibody trials (zero-variance feature).
         """
-        # If antibody columns already exist from data collection, use them
-        if 'is_antibody' in df.columns:
-            if 'antibody_type' in df.columns:
-                for ab_type in ['fully_human', 'humanized', 'chimeric', 'murine']:
-                    df[f'is_{ab_type}_antibody'] = (df['antibody_type'] == ab_type).astype(int)
+        # Create antibody type features from antibody_type column
+        if 'antibody_type' in df.columns:
+            for ab_type in ['fully_human', 'humanized', 'chimeric', 'murine']:
+                df[f'is_{ab_type}_antibody'] = (df['antibody_type'] == ab_type).astype(int)
 
-        # Otherwise, detect antibodies from intervention_names
+        # Fallback: If antibody_type doesn't exist, extract from intervention_names
         elif 'intervention_names' in df.columns:
-            df['is_antibody'] = df['intervention_names'].apply(
-                lambda x: any(analyze_antibody(name)[0] for name in str(x).split(',')) if pd.notna(x) else False
-            )
-
             # Extract primary antibody name and type
             def get_primary_antibody(intervention_names):
                 if pd.isna(intervention_names):

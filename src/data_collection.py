@@ -254,15 +254,32 @@ class ClinicalTrialsAPI:
         }
 
     def save_studies_to_csv(self, studies: List[Dict], filename: str = "clinical_trials.csv") -> pd.DataFrame:
-        """Extract features from studies and save to CSV"""
+        """
+        Extract features from studies and save to CSV
+
+        Only includes confirmed antibody trials (is_antibody=True).
+        The is_antibody column is not included since it would be zero-variance.
+        """
         output_path = Path(self.output_dir) / filename
 
         print(f"Extracting features from {len(studies)} studies...")
         features = [self.extract_basic_features(study) for study in studies]
         df = pd.DataFrame(features)
 
+        # Filter to only antibody trials
+        initial_count = len(df)
+        df = df[df['is_antibody'] == True].copy()
+        filtered_count = initial_count - len(df)
+
+        if filtered_count > 0:
+            print(f"  Filtered out {filtered_count} non-antibody trials")
+            print(f"  Remaining: {len(df)} antibody trials")
+
+        # Remove is_antibody column (zero variance after filtering)
+        df = df.drop(columns=['is_antibody'])
+
         df.to_csv(output_path, index=False)
-        print(f"Saved {len(df)} studies to {output_path}")
+        print(f"Saved {len(df)} antibody trials to {output_path}")
 
         return df
 

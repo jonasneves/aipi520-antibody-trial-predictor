@@ -437,9 +437,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -f reports/model_comparison.csv ]; then
-            # Extract best model info
-            BEST_MODEL=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f1)
-            BEST_AUC=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f6)
+            # Extract best model info (model_name is column 7, roc_auc is column 5)
+            BEST_MODEL=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f7)
+            BEST_AUC=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f5)
 
             echo "## Best Model" >> $GITHUB_STEP_SUMMARY
             echo "**${BEST_MODEL}** with ROC AUC: **${BEST_AUC}**" >> $GITHUB_STEP_SUMMARY

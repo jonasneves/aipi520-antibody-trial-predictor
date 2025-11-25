@@ -121,11 +121,33 @@ def convert_to_csv_format(trials: List[Dict], csv_file: Path):
     # classify antibody types and create the CSV
 
     records = []
+    filtered_count = 0
+
     for trial in trials:
         # Extract antibody type and other features
+        # intervention_names is semicolon-separated, analyze each one
         intervention_names = trial.get("intervention_names", "")
-        is_antibody, antibody_type = analyze_antibody(intervention_names)
 
+        # Split by semicolon and analyze each intervention separately
+        is_antibody = False
+        antibody_type = "not_antibody"
+
+        if intervention_names:
+            interventions = [i.strip() for i in intervention_names.split(";")]
+            for intervention in interventions:
+                ab_check, ab_type = analyze_antibody(intervention)
+                if ab_check:
+                    is_antibody = True
+                    antibody_type = ab_type
+                    break  # Found an antibody, use it
+
+        # Filter: Only include trials where we found a true antibody intervention
+        if not is_antibody:
+            filtered_count += 1
+            continue
+
+        # Note: is_antibody is always True at this point, so we don't include it
+        # This removes a zero-variance feature from the dataset
         record = {
             "nct_id": trial.get("nct_id", ""),
             "brief_title": trial.get("brief_title", ""),
@@ -137,8 +159,7 @@ def convert_to_csv_format(trials: List[Dict], csv_file: Path):
             "enrollment": trial.get("enrollment", 0),
             "conditions": trial.get("conditions", ""),
             "intervention_names": intervention_names,
-            "is_antibody": is_antibody,
-            "antibody_type": antibody_type,
+            "antibody_type": antibody_type,  # Keep this - has variance!
             "sponsor_class": trial.get("sponsor_class", ""),
             "sponsor_name": trial.get("sponsor_name", ""),
             "start_date": trial.get("start_date", ""),
@@ -159,10 +180,14 @@ def convert_to_csv_format(trials: List[Dict], csv_file: Path):
         }
         records.append(record)
 
+    if filtered_count > 0:
+        print(f"  Filtered out {filtered_count} trials without confirmed antibody interventions")
+        print(f"  Remaining: {len(records)} trials with true antibody interventions")
+
     df = pd.DataFrame(records)
     csv_file.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(csv_file, index=False)
-    print(f"✓ Saved {len(df)} trials to {csv_file}")
+    print(f"✓ Saved {len(df)} antibody trials to {csv_file}")
 
     return df
 
