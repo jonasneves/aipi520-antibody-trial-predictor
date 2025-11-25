@@ -102,9 +102,44 @@ jobs:
       - name: Download and parse bulk XML from S3
         if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'bulk_xml'
         run: |
-          echo "Downloading bulk XML file from S3 (~4GB, this may take several minutes)..."
-          aws s3 cp "s3://aipi520-antibody-trial-predictor/bulk_data/ctg-public-xml.zip" data/ctg-public-xml.zip
-          echo "✓ Downloaded bulk XML from S3"
+          echo "Downloading bulk XML file from S3 (~2.6GB, this may take several minutes)..."
+
+          # Configure AWS CLI for better large file handling
+          aws configure set default.s3.max_concurrent_requests 20
+          aws configure set default.s3.multipart_threshold 64MB
+          aws configure set default.s3.multipart_chunksize 16MB
+
+          # Download with retry logic
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            echo "Download attempt $((RETRY_COUNT + 1))/$MAX_RETRIES"
+
+            if aws s3 cp "s3://aipi520-antibody-trial-predictor/bulk_data/ctg-public-xml.zip" data/ctg-public-xml.zip --no-progress; then
+              echo "✓ Downloaded bulk XML from S3"
+              break
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Download failed, retrying in 10 seconds..."
+                sleep 10
+              else
+                echo "Error: Failed to download after $MAX_RETRIES attempts"
+                exit 1
+              fi
+            fi
+          done
+
+          # Verify download
+          if [ ! -f data/ctg-public-xml.zip ]; then
+            echo "Error: Download file not found"
+            exit 1
+          fi
+
+          FILE_SIZE=$(stat -f%z data/ctg-public-xml.zip 2>/dev/null || stat -c%s data/ctg-public-xml.zip)
+          echo "Downloaded file size: $(($FILE_SIZE / 1024 / 1024)) MB"
+
           echo ""
           echo "Streaming and parsing XML files from ZIP archive..."
           echo "(No extraction needed - saves ~11GB disk space)"
