@@ -94,6 +94,26 @@ jobs:
           aws s3 cp "s3://aipi520-antibody-trial-predictor/${{ steps.s3-cache.outputs.raw-s3-key }}" data/completed_phase2_3_trials_raw.json
           echo "Downloaded cached raw data from S3"
 
+      - name: Convert cached bulk XML to CSV
+        if: steps.s3-cache.outputs.raw-cache-hit == 'true' && env.DATA_SOURCE == 'bulk_xml'
+        run: |
+          echo "Converting cached raw JSON to CSV format..."
+          python -c "
+          import sys
+          import json
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          from parse_bulk_xml import convert_to_csv_format
+
+          # Load raw JSON
+          with open('data/completed_phase2_3_trials_raw.json', 'r') as f:
+              trials = json.load(f)
+
+          # Convert to CSV
+          convert_to_csv_format(trials, Path('data/completed_phase2_3_trials.csv'))
+          "
+          echo "✓ Converted cached data to CSV"
+
       - name: Collect data from API
         if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'api'
         run: |
