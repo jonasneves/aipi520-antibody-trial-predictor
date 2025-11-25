@@ -254,23 +254,11 @@ class ClinicalTrialsAPI:
         }
 
     def save_studies_to_csv(self, studies: List[Dict], filename: str = "clinical_trials.csv") -> pd.DataFrame:
-        """
-        Extract features from studies and save to CSV
-
-        Handles both API format (with protocolSection) and pre-extracted XML format
-        """
+        """Extract features from studies and save to CSV"""
         output_path = Path(self.output_dir) / filename
 
         print(f"Extracting features from {len(studies)} studies...")
-
-        # Check if data is already extracted (from XML parser) or needs extraction (from API)
-        if studies and 'protocolSection' in studies[0]:
-            # API format - needs feature extraction
-            features = [self.extract_basic_features(study) for study in studies]
-        else:
-            # Pre-extracted format (from XML parser) - use directly
-            features = studies
-
+        features = [self.extract_basic_features(study) for study in studies]
         df = pd.DataFrame(features)
 
         df.to_csv(output_path, index=False)

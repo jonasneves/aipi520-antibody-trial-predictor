@@ -1,5 +1,5 @@
 name: ML Pipeline
-run-name: "${{ github.event_name == 'workflow_dispatch' && format('ML Pipeline - {0} studies', github.event.inputs.max_studies) || format('ML Pipeline - {0}', github.ref_name) }}"
+run-name: "${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.data_source == 'bulk_xml' && 'ML Pipeline - Bulk XML' || format('ML Pipeline - {0} studies', github.event.inputs.max_studies)) || format('ML Pipeline - {0}', github.ref_name) }}"
 
 on:
   push:
@@ -102,25 +102,17 @@ jobs:
       - name: Download bulk XML from S3
         if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'bulk_xml'
         run: |
-          echo "Checking for bulk XML in S3..."
-          if aws s3 ls "s3://aipi520-antibody-trial-predictor/bulk_data/AllPublicXML.zip" 2>/dev/null; then
-            echo "Downloading bulk XML file (~4GB, this may take several minutes)..."
-            aws s3 cp "s3://aipi520-antibody-trial-predictor/bulk_data/AllPublicXML.zip" data/AllPublicXML.zip
-            echo "✓ Downloaded bulk XML from S3"
-          else
-            echo "Error: Bulk XML file not found in S3"
-            echo "Please run scripts/download_bulk_xml.py first to upload the file"
-            exit 1
-          fi
+          echo "Downloading bulk XML file from S3 (~4GB, this may take several minutes)..."
+          aws s3 cp "s3://aipi520-antibody-trial-predictor/bulk_data/ctg-public-xml.zip" data/ctg-public-xml.zip
+          echo "✓ Downloaded bulk XML from S3"
 
-      - name: Extract and parse XML files
+      - name: Extract and parse bulk XML
         if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'bulk_xml'
         run: |
-          echo "Unzipping AllPublicXML.zip (this may take 10-20 minutes)..."
-          unzip -q data/AllPublicXML.zip -d data/raw_xml
+          echo "Extracting XML files (this may take 10-20 minutes)..."
+          unzip -q data/ctg-public-xml.zip -d data/xml_raw/
           echo "✓ Extracted XML files"
-
-          echo "Parsing XML files for Phase 2/3 antibody trials..."
+          echo "Parsing XML and filtering for Phase 2/3 antibody trials..."
           python scripts/parse_bulk_xml.py
           echo "✓ Parsed and filtered trials"
 
@@ -148,7 +140,11 @@ jobs:
           echo "# Data Labeling Complete" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.s3-cache.outputs.raw-cache-hit }}" != "true" ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Data Source:** ClinicalTrials.gov API (collected fresh)" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ env.DATA_SOURCE }}" = "bulk_xml" ]; then
+              echo "**Data Source:** ClinicalTrials.gov Bulk XML (parsed from ~500K trials)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**Data Source:** ClinicalTrials.gov API (collected fresh)" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
           if [ "${{ env.MAX_STUDIES }}" = "0" ]; then
             echo "**Max Studies:** Unlimited (all available)" >> $GITHUB_STEP_SUMMARY
@@ -401,8 +397,12 @@ jobs:
           echo "# ML Pipeline Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Configuration" >> $GITHUB_STEP_SUMMARY
-          echo "- **Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ env.DATA_SOURCE }}" = "bulk_xml" ]; then
+            echo "- **Data Source:** Bulk XML (~500K trials parsed)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- **Models Trained:** 5 (in parallel)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 

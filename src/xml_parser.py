@@ -1,252 +1,242 @@
 """
 XML Parser for ClinicalTrials.gov Bulk Data
 
-This module parses XML files from the AllPublicXML.zip bulk download
-and extracts detailed clinical trial information including clinical results,
-adverse events, and outcome measures.
+This module parses XML files from the bulk download (ctg-public-xml.zip)
+and extracts detailed clinical trial information.
 """
 
 from xml.etree import ElementTree as ET
 from typing import Dict, List, Optional
 from pathlib import Path
-import pandas as pd
+import json
 
 
-def parse_clinical_results(root: ET.Element) -> Dict:
+def safe_find_text(element: Optional[ET.Element], path: str, default: str = "") -> str:
+    """Safely find text in XML element"""
+    if element is None:
+        return default
+    found = element.find(path)
+    return found.text if found is not None and found.text else default
+
+
+def safe_findall(element: Optional[ET.Element], path: str) -> List[ET.Element]:
+    """Safely find all matching elements"""
+    if element is None:
+        return []
+    return element.findall(path) or []
+
+
+def parse_clinical_trial_xml(xml_file: Path) -> Dict:
     """
-    Parse the clinical results section from XML and return structured data.
+    Parse a single ClinicalTrials.gov XML file and extract key information.
 
-    This includes:
-    - Participant flow (enrollment, completion)
-    - Baseline characteristics
-    - Outcome measures (primary and secondary)
-    - Adverse events (serious and other)
+    Args:
+        xml_file: Path to the XML file
+
+    Returns:
+        Dictionary with extracted trial information
     """
-    clinical_results = {}
+    try:
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
 
-    # Find clinical_results section
-    results_section = root.find('clinical_results')
-    if results_section is None:
-        return clinical_results
+        # Basic identification
+        nct_id = safe_find_text(root, "id_info/nct_id")
 
-    # Parse participant flow
-    participant_flow = {}
-    flow_section = results_section.find('participant_flow')
-    if flow_section is not None:
-        # Parse groups
-        groups = []
-        group_list = flow_section.find('group_list')
-        if group_list is not None:
-            for group in group_list.findall('group'):
-                group_data = {
-                    'group_id': group.get('group_id', ''),
-                    'title': group.find('title').text if group.find('title') is not None else '',
-                    'description': group.find('description').text if group.find('description') is not None else ''
-                }
-                groups.append(group_data)
+        # Study information
+        brief_title = safe_find_text(root, "brief_title")
+        official_title = safe_find_text(root, "official_title")
+        overall_status = safe_find_text(root, "overall_status")
+        why_stopped = safe_find_text(root, "why_stopped")
 
-        participant_flow['groups'] = groups
+        # Phase
+        phase_elem = root.find("phase")
+        phase = phase_elem.text if phase_elem is not None and phase_elem.text else ""
 
-    # Parse adverse events
-    reported_events = {}
-    events_section = results_section.find('reported_events')
-    if events_section is not None:
-        reported_events = {
-            'time_frame': events_section.find('time_frame').text if events_section.find('time_frame') is not None else '',
-            'serious_events': [],
-            'other_events': []
+        # Study type
+        study_type = safe_find_text(root, "study_type")
+
+        # Enrollment
+        enrollment_elem = root.find("enrollment")
+        enrollment = 0
+        if enrollment_elem is not None:
+            try:
+                enrollment = int(enrollment_elem.text) if enrollment_elem.text else 0
+            except (ValueError, TypeError):
+                enrollment = 0
+
+        # Conditions
+        conditions = [cond.text for cond in safe_findall(root, "condition") if cond.text]
+        conditions_str = "; ".join(conditions) if conditions else ""
+
+        # Interventions
+        interventions = []
+        intervention_names = []
+        for intervention in safe_findall(root, "intervention"):
+            intervention_type = safe_find_text(intervention, "intervention_type")
+            intervention_name = safe_find_text(intervention, "intervention_name")
+            if intervention_name:
+                interventions.append({
+                    "type": intervention_type,
+                    "name": intervention_name
+                })
+                intervention_names.append(intervention_name)
+
+        intervention_names_str = "; ".join(intervention_names) if intervention_names else ""
+
+        # Sponsor
+        sponsor_class = safe_find_text(root, "sponsors/lead_sponsor/agency_class")
+        sponsor_name = safe_find_text(root, "sponsors/lead_sponsor/agency")
+
+        # Dates
+        start_date = safe_find_text(root, "start_date")
+        completion_date = safe_find_text(root, "completion_date")
+        primary_completion_date = safe_find_text(root, "primary_completion_date")
+
+        # Results availability
+        has_results_elem = root.find("clinical_results")
+        has_results = has_results_elem is not None
+
+        # Study design
+        study_design_info = root.find("study_design_info")
+        allocation = safe_find_text(study_design_info, "allocation")
+        intervention_model = safe_find_text(study_design_info, "intervention_model")
+        primary_purpose = safe_find_text(study_design_info, "primary_purpose")
+        masking = safe_find_text(study_design_info, "masking")
+
+        # Eligibility
+        eligibility = root.find("eligibility")
+        gender = safe_find_text(eligibility, "gender")
+        minimum_age = safe_find_text(eligibility, "minimum_age")
+        maximum_age = safe_find_text(eligibility, "maximum_age")
+
+        # Locations (count)
+        locations = safe_findall(root, "location")
+        num_locations = len(locations)
+
+        # Country information
+        countries = list(set([safe_find_text(loc, "country") for loc in locations if safe_find_text(loc, "country")]))
+        num_countries = len(countries)
+
+        # Detailed description
+        detailed_description = safe_find_text(root, "detailed_description/textblock")
+        brief_summary = safe_find_text(root, "brief_summary/textblock")
+
+        # Keywords
+        keywords = [kw.text for kw in safe_findall(root, "keyword") if kw.text]
+        keywords_str = "; ".join(keywords) if keywords else ""
+
+        # MeSH terms
+        condition_mesh = [mesh.text for mesh in safe_findall(root, "condition_browse/mesh_term") if mesh.text]
+        intervention_mesh = [mesh.text for mesh in safe_findall(root, "intervention_browse/mesh_term") if mesh.text]
+
+        return {
+            "nct_id": nct_id,
+            "brief_title": brief_title,
+            "official_title": official_title,
+            "overall_status": overall_status,
+            "why_stopped": why_stopped,
+            "phase": phase,
+            "study_type": study_type,
+            "enrollment": enrollment,
+            "conditions": conditions_str,
+            "intervention_names": intervention_names_str,
+            "interventions": interventions,  # Full list with types
+            "sponsor_class": sponsor_class,
+            "sponsor_name": sponsor_name,
+            "start_date": start_date,
+            "completion_date": completion_date,
+            "primary_completion_date": primary_completion_date,
+            "has_results": has_results,
+            "allocation": allocation,
+            "intervention_model": intervention_model,
+            "primary_purpose": primary_purpose,
+            "masking": masking,
+            "gender": gender,
+            "minimum_age": minimum_age,
+            "maximum_age": maximum_age,
+            "num_locations": num_locations,
+            "num_countries": num_countries,
+            "countries": "; ".join(countries) if countries else "",
+            "detailed_description": detailed_description,
+            "brief_summary": brief_summary,
+            "keywords": keywords_str,
+            "condition_mesh_terms": condition_mesh,
+            "intervention_mesh_terms": intervention_mesh,
         }
 
-        # Parse serious events
-        serious_events = events_section.find('serious_events')
-        if serious_events is not None:
-            category_list = serious_events.find('category_list')
-            if category_list is not None:
-                for category in category_list.findall('category'):
-                    category_data = {
-                        'title': category.find('title').text if category.find('title') is not None else '',
-                        'event_count': 0
-                    }
-
-                    event_list = category.find('event_list')
-                    if event_list is not None:
-                        category_data['event_count'] = len(event_list.findall('event'))
-
-                    reported_events['serious_events'].append(category_data)
-
-    clinical_results['reported_events'] = reported_events
-
-    return clinical_results
+    except Exception as e:
+        print(f"Error parsing {xml_file}: {e}")
+        return None
 
 
-def xmlfile2results(xml_file: str) -> Dict:
+def is_phase_2_or_3(phase: str) -> bool:
+    """Check if trial is Phase 2 or Phase 3"""
+    if not phase:
+        return False
+    phase_lower = phase.lower()
+    return "phase 2" in phase_lower or "phase 3" in phase_lower
+
+
+def is_completed_or_terminated(status: str) -> bool:
+    """Check if trial status qualifies for analysis"""
+    if not status:
+        return False
+    status_lower = status.lower()
+    return status_lower in ["completed", "terminated", "withdrawn", "suspended"]
+
+
+def is_interventional(study_type: str) -> bool:
+    """Check if study is interventional"""
+    if not study_type:
+        return False
+    return study_type.lower() == "interventional"
+
+
+def contains_antibody(intervention_names: str) -> bool:
     """
-    Parse clinical trial XML file and return a dictionary with extracted data.
+    Check if any intervention name suggests an antibody therapy.
 
-    Args:
-        xml_file: Path to XML file
-
-    Returns:
-        Dictionary with extracted trial data
+    Common antibody suffixes: -mab, -zumab, -mumab, -ximab, -umab, -tuzumab, etc.
     """
-    tree = ET.parse(xml_file)
-    root = tree.getroot()
+    if not intervention_names:
+        return False
 
-    # Basic study identifiers
-    nctid = root.find('id_info/nct_id').text if root.find('id_info/nct_id') is not None else ''
-    url = root.find('required_header/url').text if root.find('required_header/url') is not None else ''
+    intervention_lower = intervention_names.lower()
 
-    # Titles
-    brief_title = root.find('brief_title').text if root.find('brief_title') is not None else ''
-    official_title = root.find('official_title').text if root.find('official_title') is not None else ''
+    # Check for common antibody patterns
+    antibody_patterns = [
+        "mab",  # monoclonal antibody
+        "antibody",
+        "antibodies",
+        "-mab",
+        "-zumab",
+        "-mumab",
+        "-ximab",
+        "-umab",
+        "-tuzumab",
+        "immunoglobulin",
+    ]
 
-    # Sponsors
-    lead_sponsor = ''
-    sponsor_class = ''
-    sponsors = root.find('sponsors')
-    if sponsors is not None:
-        lead_sponsor_elem = sponsors.find('lead_sponsor/agency')
-        lead_class_elem = sponsors.find('lead_sponsor/agency_class')
-        if lead_sponsor_elem is not None:
-            lead_sponsor = lead_sponsor_elem.text
-        if lead_class_elem is not None:
-            sponsor_class = lead_class_elem.text
-
-    # Study type and phase
-    study_type = root.find('study_type').text if root.find('study_type') is not None else ''
-    phase = root.find('phase').text if root.find('phase') is not None else ''
-
-    # Status and dates
-    overall_status = root.find('overall_status').text if root.find('overall_status') is not None else ''
-    why_stopped = root.find('why_stopped').text if root.find('why_stopped') is not None else ''
-
-    # Dates
-    start_date = ''
-    start_date_elem = root.find('start_date')
-    if start_date_elem is not None:
-        start_date = start_date_elem.text if start_date_elem.text else ''
-
-    completion_date = ''
-    completion_date_elem = root.find('completion_date')
-    if completion_date_elem is None:
-        completion_date_elem = root.find('primary_completion_date')
-    if completion_date_elem is not None:
-        completion_date = completion_date_elem.text if completion_date_elem.text else ''
-
-    # Interventions
-    interventions = []
-    intervention_names = []
-    for intervention in root.findall('intervention'):
-        intervention_type_elem = intervention.find('intervention_type')
-        intervention_name_elem = intervention.find('intervention_name')
-
-        if intervention_name_elem is not None and intervention_name_elem.text:
-            intervention_names.append(intervention_name_elem.text)
-            interventions.append({
-                'type': intervention_type_elem.text if intervention_type_elem is not None else '',
-                'name': intervention_name_elem.text
-            })
-
-    # Conditions
-    conditions = [condition.text.strip() for condition in root.findall('condition') if condition.text]
-
-    # Enrollment
-    enrollment = 0
-    enrollment_elem = root.find('enrollment')
-    if enrollment_elem is not None and enrollment_elem.text:
-        try:
-            enrollment = int(enrollment_elem.text)
-        except ValueError:
-            enrollment = 0
-
-    # Study design
-    study_design_info = {}
-    sdi = root.find('study_design_info')
-    if sdi is not None:
-        allocation = sdi.find('allocation')
-        intervention_model = sdi.find('intervention_model')
-        masking = sdi.find('masking')
-        primary_purpose = sdi.find('primary_purpose')
-
-        if allocation is not None and allocation.text:
-            study_design_info['allocation'] = allocation.text
-        if intervention_model is not None and intervention_model.text:
-            study_design_info['intervention_model'] = intervention_model.text
-        if masking is not None and masking.text:
-            study_design_info['masking'] = masking.text
-        if primary_purpose is not None and primary_purpose.text:
-            study_design_info['primary_purpose'] = primary_purpose.text
-
-    # Primary outcomes
-    primary_outcomes = []
-    for po in root.findall('primary_outcome'):
-        measure_elem = po.find('measure')
-        if measure_elem is not None and measure_elem.text:
-            primary_outcomes.append({'measure': measure_elem.text})
-
-    # Clinical Results
-    clinical_results = parse_clinical_results(root)
-    has_results = len(clinical_results) > 0
-
-    # Assemble data
-    data = {
-        'nct_id': nctid,
-        'url': url,
-        'brief_title': brief_title,
-        'official_title': official_title,
-        'sponsor_name': lead_sponsor,
-        'sponsor_class': sponsor_class,
-        'study_type': study_type,
-        'phases': phase,
-        'overall_status': overall_status,
-        'why_stopped': why_stopped,
-        'start_date': start_date,
-        'completion_date': completion_date,
-        'intervention_names': ','.join(intervention_names),
-        'intervention_types': ','.join(set(i['type'] for i in interventions if i.get('type'))),
-        'conditions': ','.join(conditions),
-        'enrollment': enrollment,
-        'study_design_info': study_design_info,
-        'primary_outcomes': primary_outcomes,
-        'has_results': has_results,
-        'clinical_results': clinical_results
-    }
-
-    return data
+    return any(pattern in intervention_lower for pattern in antibody_patterns)
 
 
-def parse_xml_directory(xml_dir: str, filter_func=None) -> pd.DataFrame:
+def filter_antibody_phase23_trial(trial_data: Dict) -> bool:
     """
-    Parse all XML files in a directory and return as DataFrame.
+    Filter for Phase 2/3 antibody trials that are completed/terminated.
 
-    Args:
-        xml_dir: Directory containing XML files
-        filter_func: Optional function to filter trials (returns True to include)
-
-    Returns:
-        DataFrame with parsed trial data
+    Returns True if trial meets criteria:
+    - Phase 2 or Phase 3
+    - Completed, terminated, withdrawn, or suspended
+    - Interventional study
+    - Contains antibody intervention
     """
-    xml_path = Path(xml_dir)
-    xml_files = list(xml_path.rglob("NCT*.xml"))
+    if not trial_data:
+        return False
 
-    print(f"Found {len(xml_files)} XML files")
-
-    trials = []
-    for i, xml_file in enumerate(xml_files):
-        if i % 1000 == 0:
-            print(f"Processed {i}/{len(xml_files)} files...")
-
-        try:
-            data = xmlfile2results(str(xml_file))
-
-            # Apply filter if provided
-            if filter_func is None or filter_func(data):
-                trials.append(data)
-
-        except Exception as e:
-            print(f"Error parsing {xml_file}: {e}")
-            continue
-
-    print(f"✓ Parsed {len(trials)} trials")
-
-    return pd.DataFrame(trials)
+    return (
+        is_phase_2_or_3(trial_data.get("phase", ""))
+        and is_completed_or_terminated(trial_data.get("overall_status", ""))
+        and is_interventional(trial_data.get("study_type", ""))
+        and contains_antibody(trial_data.get("intervention_names", ""))
+    )
