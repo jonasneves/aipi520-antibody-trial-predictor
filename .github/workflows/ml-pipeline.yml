@@ -267,10 +267,10 @@ jobs:
 
       - name: Generate EDA report for raw data
         run: |
-          mkdir -p reports
+          mkdir -p docs
           python scripts/generate_eda_raw.py \
             data/clinical_trials_binary.csv \
-            reports/eda_raw_data.html \
+            docs/eda_raw_data.html \
             --timestamp "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
             --data-source "${{ env.DATA_SOURCE == 'bulk_xml' && 'Bulk XML (~500K trials)' || 'ClinicalTrials.gov API' }}" \
             --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -279,7 +279,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: eda-raw-report
-          path: reports/eda_raw_data.html
+          path: docs/eda_raw_data.html
           retention-days: 30
 
   # Stage 1c: Feature Engineering
@@ -395,10 +395,10 @@ jobs:
 
       - name: Generate EDA report for features
         run: |
-          mkdir -p reports
+          mkdir -p docs
           python scripts/generate_eda_features.py \
             data/clinical_trials_features.csv \
-            reports/eda_features.html \
+            docs/eda_features.html \
             --timestamp "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
             --data-source "${{ env.DATA_SOURCE == 'bulk_xml' && 'Bulk XML (~500K trials)' || 'ClinicalTrials.gov API' }}" \
             --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -407,7 +407,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: eda-features-report
-          path: reports/eda_features.html
+          path: docs/eda_features.html
           retention-days: 30
 
   # Stage 2b: Train Models in Parallel (Matrix Strategy)
@@ -503,7 +503,8 @@ jobs:
 
       - name: Generate report (CSV + HTML)
         run: |
-          python scripts/generate_report.py models reports/model_comparison.csv docs/index.html \
+          mkdir -p reports docs
+          python scripts/generate_report.py models reports/model_comparison.csv docs/model_dashboard.html \
             --timestamp "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
             --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --repo "${{ github.repository }}"
