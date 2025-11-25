@@ -42,7 +42,7 @@ jobs:
   # Stage 1a: Data Collection & Labeling
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45  # Increased for bulk XML processing (~30 min for ~500K trials)
     outputs:
       cache-hit: ${{ steps.s3-cache.outputs.cache-hit }}
       s3-key: ${{ steps.s3-cache.outputs.s3-key }}
@@ -99,20 +99,15 @@ jobs:
         run: |
           python run_pipeline.py --steps collect --max-studies ${{ env.MAX_STUDIES }}
 
-      - name: Download bulk XML from S3
+      - name: Download and parse bulk XML from S3
         if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'bulk_xml'
         run: |
           echo "Downloading bulk XML file from S3 (~4GB, this may take several minutes)..."
           aws s3 cp "s3://aipi520-antibody-trial-predictor/bulk_data/ctg-public-xml.zip" data/ctg-public-xml.zip
           echo "✓ Downloaded bulk XML from S3"
-
-      - name: Extract and parse bulk XML
-        if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'bulk_xml'
-        run: |
-          echo "Extracting XML files (this may take 10-20 minutes)..."
-          unzip -q data/ctg-public-xml.zip -d data/xml_raw/
-          echo "✓ Extracted XML files"
-          echo "Parsing XML and filtering for Phase 2/3 antibody trials..."
+          echo ""
+          echo "Streaming and parsing XML files from ZIP archive..."
+          echo "(No extraction needed - saves ~11GB disk space)"
           python scripts/parse_bulk_xml.py
           echo "✓ Parsed and filtered trials"
 

@@ -26,19 +26,17 @@ def safe_findall(element: Optional[ET.Element], path: str) -> List[ET.Element]:
     return element.findall(path) or []
 
 
-def parse_clinical_trial_xml(xml_file: Path) -> Dict:
+def parse_clinical_trial_xml_from_element(root: ET.Element) -> Dict:
     """
-    Parse a single ClinicalTrials.gov XML file and extract key information.
+    Parse a ClinicalTrials.gov XML element and extract key information.
 
     Args:
-        xml_file: Path to the XML file
+        root: XML root element
 
     Returns:
         Dictionary with extracted trial information
     """
     try:
-        tree = ET.parse(xml_file)
-        root = tree.getroot()
 
         # Basic identification
         nct_id = safe_find_text(root, "id_info/nct_id")
@@ -165,6 +163,24 @@ def parse_clinical_trial_xml(xml_file: Path) -> Dict:
             "intervention_mesh_terms": intervention_mesh,
         }
 
+    except Exception as e:
+        return None
+
+
+def parse_clinical_trial_xml(xml_file: Path) -> Dict:
+    """
+    Parse a single ClinicalTrials.gov XML file and extract key information.
+
+    Args:
+        xml_file: Path to the XML file
+
+    Returns:
+        Dictionary with extracted trial information
+    """
+    try:
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+        return parse_clinical_trial_xml_from_element(root)
     except Exception as e:
         print(f"Error parsing {xml_file}: {e}")
         return None

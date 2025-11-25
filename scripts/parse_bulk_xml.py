@@ -3,72 +3,95 @@
 Parse bulk XML data and filter for Phase 2/3 antibody trials
 
 This script:
-1. Reads all XML files from data/xml_raw/
+1. Streams XML files directly from ZIP archive (no full extraction needed)
 2. Parses each file and extracts trial information
 3. Filters for Phase 2/3 antibody trials that are completed/terminated
 4. Saves results in the same format expected by the pipeline
+
+This approach saves ~11GB of disk space by not extracting the full archive.
 """
 
 import sys
 import json
+import zipfile
+import tempfile
 from pathlib import Path
 from typing import List, Dict
+from xml.etree import ElementTree as ET
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from xml_parser import (
     parse_clinical_trial_xml,
+    parse_clinical_trial_xml_from_element,
     filter_antibody_phase23_trial,
 )
 
 
-def find_all_xml_files(xml_dir: Path) -> List[Path]:
-    """Find all XML files recursively in the extracted directory"""
-    xml_files = []
-
-    # The ClinicalTrials.gov bulk download has a nested structure like:
-    # NCT0000xxxx/NCT00001234.xml
-    for xml_file in xml_dir.rglob("*.xml"):
-        xml_files.append(xml_file)
-
-    return xml_files
-
-
-def parse_and_filter_trials(xml_dir: Path, output_file: Path, progress_interval: int = 1000):
+def parse_and_filter_trials_from_zip(zip_path: Path, output_file: Path, progress_interval: int = 1000):
     """
-    Parse all XML files and filter for antibody trials.
+    Parse all XML files directly from ZIP archive and filter for antibody trials.
+
+    This streams files from the ZIP without extracting the full archive,
+    saving ~11GB of disk space.
 
     Args:
-        xml_dir: Directory containing extracted XML files
+        zip_path: Path to the ZIP file containing XML files
         output_file: Output JSON file path
         progress_interval: Print progress every N files
     """
-    print(f"Finding XML files in {xml_dir}...")
-    xml_files = find_all_xml_files(xml_dir)
-    print(f"Found {len(xml_files):,} XML files")
+    print(f"Opening ZIP archive: {zip_path}")
+    print(f"Size: {zip_path.stat().st_size / (1024**3):.2f} GB")
 
     filtered_trials = []
     parse_errors = 0
+    total_files = 0
 
-    print("\nParsing XML files and filtering for Phase 2/3 antibody trials...")
-    for i, xml_file in enumerate(xml_files, 1):
-        if i % progress_interval == 0:
-            print(f"  Processed {i:,}/{len(xml_files):,} files "
-                  f"({i/len(xml_files)*100:.1f}%) - Found {len(filtered_trials):,} matching trials")
+    print("\nStreaming and parsing XML files from ZIP archive...")
+    print("(This avoids extracting ~11GB to disk)")
 
-        trial_data = parse_clinical_trial_xml(xml_file)
+    with zipfile.ZipFile(zip_path, 'r') as zip_file:
+        # Get list of XML files in the archive
+        xml_entries = [name for name in zip_file.namelist() if name.endswith('.xml')]
+        total_files = len(xml_entries)
+        print(f"Found {total_files:,} XML files in archive")
 
-        if trial_data is None:
-            parse_errors += 1
-            continue
+        for i, xml_entry in enumerate(xml_entries, 1):
+            if i % progress_interval == 0:
+                print(f"  Processed {i:,}/{total_files:,} files "
+                      f"({i/total_files*100:.1f}%) - Found {len(filtered_trials):,} matching trials")
 
-        # Filter for antibody trials
-        if filter_antibody_phase23_trial(trial_data):
-            filtered_trials.append(trial_data)
+            try:
+                # Read XML content from ZIP (in memory, no disk extraction)
+                with zip_file.open(xml_entry) as xml_file:
+                    xml_content = xml_file.read()
+
+                # Parse XML from string
+                try:
+                    root = ET.fromstring(xml_content)
+
+                    # Extract trial data using a modified version of parse_clinical_trial_xml
+                    trial_data = parse_clinical_trial_xml_from_element(root)
+
+                    if trial_data is None:
+                        parse_errors += 1
+                        continue
+
+                    # Filter for antibody trials
+                    if filter_antibody_phase23_trial(trial_data):
+                        filtered_trials.append(trial_data)
+
+                except ET.ParseError as e:
+                    parse_errors += 1
+                    continue
+
+            except Exception as e:
+                parse_errors += 1
+                continue
 
     print(f"\n✓ Parsing complete!")
-    print(f"  Total files processed: {len(xml_files):,}")
+    print(f"  Total files processed: {total_files:,}")
     print(f"  Parse errors: {parse_errors:,}")
     print(f"  Phase 2/3 antibody trials found: {len(filtered_trials):,}")
 
@@ -151,18 +174,17 @@ def convert_to_csv_format(trials: List[Dict], csv_file: Path):
 def main():
     """Main entry point"""
     # Paths
-    xml_dir = Path("data/xml_raw")
+    zip_file = Path("data/ctg-public-xml.zip")
     raw_json_file = Path("data/completed_phase2_3_trials_raw.json")
     csv_file = Path("data/completed_phase2_3_trials.csv")
 
-    if not xml_dir.exists():
-        print(f"Error: XML directory not found at {xml_dir}")
-        print("Please extract the bulk XML file first:")
-        print("  unzip data/ctg-public-xml.zip -d data/xml_raw/")
+    if not zip_file.exists():
+        print(f"Error: ZIP file not found at {zip_file}")
+        print("Please download the bulk XML file first from S3")
         sys.exit(1)
 
-    # Parse and filter
-    trials = parse_and_filter_trials(xml_dir, raw_json_file)
+    # Parse and filter (streaming from ZIP, no extraction needed)
+    trials = parse_and_filter_trials_from_zip(zip_file, raw_json_file)
 
     # Convert to CSV format
     convert_to_csv_format(trials, csv_file)
