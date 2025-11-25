@@ -1,5 +1,5 @@
 name: ML Pipeline
-run-name: "${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.data_source == 'bulk_xml' && 'ML Pipeline - Bulk XML' || format('ML Pipeline - {0} studies', github.event.inputs.max_studies)) || format('ML Pipeline - {0}', github.ref_name) }}"
+run-name: "${{ github.event_name == 'workflow_dispatch' && format('ML Pipeline - {0} studies', github.event.inputs.max_studies) || format('ML Pipeline - {0}', github.ref_name) }}"
 
 on:
   push:
@@ -15,16 +15,8 @@ on:
       - '.github/workflows/ml-pipeline.yml'
   workflow_dispatch:
     inputs:
-      data_source:
-        description: 'Data source: api or bulk_xml'
-        required: false
-        default: 'api'
-        type: choice
-        options:
-          - api
-          - bulk_xml
       max_studies:
-        description: 'Maximum trials to collect (0 = unlimited, only for API)'
+        description: 'Maximum trials to collect (0 = unlimited)'
         required: false
         default: '50000'
         type: string
@@ -34,9 +26,8 @@ permissions:
   id-token: write
 
 env:
-  DATA_SOURCE: ${{ github.event.inputs.data_source || 'api' }}
   MAX_STUDIES: ${{ github.event.inputs.max_studies || '50000' }}
-  CACHE_KEY_SUFFIX: ${{ github.event.inputs.data_source == 'bulk_xml' && 'bulk_xml' || (github.event.inputs.max_studies == '0' && 'unlimited' || github.event.inputs.max_studies || '50000') }}
+  CACHE_KEY_SUFFIX: ${{ github.event.inputs.max_studies == '0' && 'unlimited' || github.event.inputs.max_studies || '50000' }}
 
 jobs:
   # Stage 1a: Data Collection & Labeling
@@ -95,26 +86,9 @@ jobs:
           echo "Downloaded cached raw data from S3"
 
       - name: Collect data from API
-        if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'api'
+        if: steps.s3-cache.outputs.raw-cache-hit != 'true'
         run: |
           python run_pipeline.py --steps collect --max-studies ${{ env.MAX_STUDIES }}
-
-      - name: Download bulk XML from S3
-        if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'bulk_xml'
-        run: |
-          echo "Downloading bulk XML file from S3 (~4GB, this may take several minutes)..."
-          aws s3 cp "s3://aipi520-antibody-trial-predictor/bulk_data/ctg-public-xml.zip" data/ctg-public-xml.zip
-          echo "✓ Downloaded bulk XML from S3"
-
-      - name: Extract and parse bulk XML
-        if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'bulk_xml'
-        run: |
-          echo "Extracting XML files (this may take 10-20 minutes)..."
-          unzip -q data/ctg-public-xml.zip -d data/xml_raw/
-          echo "✓ Extracted XML files"
-          echo "Parsing XML and filtering for Phase 2/3 antibody trials..."
-          python scripts/parse_bulk_xml.py
-          echo "✓ Parsed and filtered trials"
 
       - name: Upload raw data to S3
         if: steps.s3-cache.outputs.raw-cache-hit != 'true'
@@ -140,11 +114,7 @@ jobs:
           echo "# Data Labeling Complete" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.s3-cache.outputs.raw-cache-hit }}" != "true" ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ env.DATA_SOURCE }}" = "bulk_xml" ]; then
-              echo "**Data Source:** ClinicalTrials.gov Bulk XML (parsed from ~500K trials)" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "**Data Source:** ClinicalTrials.gov API (collected fresh)" >> $GITHUB_STEP_SUMMARY
-            fi
+            echo "**Data Source:** ClinicalTrials.gov API (collected fresh)" >> $GITHUB_STEP_SUMMARY
           fi
           if [ "${{ env.MAX_STUDIES }}" = "0" ]; then
             echo "**Max Studies:** Unlimited (all available)" >> $GITHUB_STEP_SUMMARY
@@ -397,12 +367,8 @@ jobs:
           echo "# ML Pipeline Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Configuration" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ env.DATA_SOURCE }}" = "bulk_xml" ]; then
-            echo "- **Data Source:** Bulk XML (~500K trials parsed)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- **Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "- **Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
           echo "- **Models Trained:** 5 (in parallel)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
