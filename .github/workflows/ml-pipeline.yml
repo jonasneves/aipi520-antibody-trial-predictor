@@ -520,9 +520,16 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -f reports/model_comparison.csv ]; then
-            # Extract best model info (model_name is column 7, roc_auc is column 5)
-            BEST_MODEL=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f7)
-            BEST_AUC=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f5)
+            # Extract best model info using Python to properly handle quoted CSV fields
+            BEST_INFO=$(python -c "
+import csv
+with open('reports/model_comparison.csv', 'r') as f:
+    reader = csv.DictReader(f)
+    first_row = next(reader)
+    print(f\"{first_row['model_name']}|{first_row['roc_auc']}\")
+")
+            BEST_MODEL=$(echo "$BEST_INFO" | cut -d'|' -f1)
+            BEST_AUC=$(echo "$BEST_INFO" | cut -d'|' -f2)
 
             echo "## Best Model" >> $GITHUB_STEP_SUMMARY
             echo "**${BEST_MODEL}** with ROC AUC: **${BEST_AUC}**" >> $GITHUB_STEP_SUMMARY
