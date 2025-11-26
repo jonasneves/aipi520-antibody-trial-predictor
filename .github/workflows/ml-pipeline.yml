@@ -1,5 +1,5 @@
 name: ML Pipeline
-run-name: "${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.data_source == 'bulk_xml' && 'ML Pipeline - Bulk XML' || format('ML Pipeline - {0} studies', github.event.inputs.max_studies)) || format('ML Pipeline - {0}', github.ref_name) }}"
+run-name: "ML Pipeline - Bulk XML"
 
 on:
   push:
@@ -14,29 +14,14 @@ on:
       - 'run_pipeline.py'
       - '.github/workflows/ml-pipeline.yml'
   workflow_dispatch:
-    inputs:
-      data_source:
-        description: 'Data source: api or bulk_xml'
-        required: false
-        default: 'api'
-        type: choice
-        options:
-          - api
-          - bulk_xml
-      max_studies:
-        description: 'Maximum trials to collect (0 = unlimited, only for API)'
-        required: false
-        default: '50000'
-        type: string
 
 permissions:
   contents: write
   id-token: write
 
 env:
-  DATA_SOURCE: ${{ github.event.inputs.data_source || 'api' }}
-  MAX_STUDIES: ${{ github.event.inputs.max_studies || '50000' }}
-  CACHE_KEY_SUFFIX: ${{ github.event.inputs.data_source == 'bulk_xml' && 'bulk_xml' || (github.event.inputs.max_studies == '0' && 'unlimited' || github.event.inputs.max_studies || '50000') }}
+  DATA_SOURCE: 'bulk_xml'
+  CACHE_KEY_SUFFIX: 'bulk_xml'
 
 jobs:
   # Stage 1a: Data Collection & Labeling
@@ -95,7 +80,7 @@ jobs:
           echo "Downloaded cached raw data from S3"
 
       - name: Convert cached bulk XML to CSV
-        if: steps.s3-cache.outputs.raw-cache-hit == 'true' && env.DATA_SOURCE == 'bulk_xml'
+        if: steps.s3-cache.outputs.raw-cache-hit == 'true'
         run: |
           echo "Converting cached raw JSON to CSV format..."
           python -c "
@@ -114,13 +99,8 @@ jobs:
           "
           echo "✓ Converted cached data to CSV"
 
-      - name: Collect data from API
-        if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'api'
-        run: |
-          python run_pipeline.py --steps collect --max-studies ${{ env.MAX_STUDIES }}
-
       - name: Download and parse bulk XML from S3
-        if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'bulk_xml'
+        if: steps.s3-cache.outputs.raw-cache-hit != 'true'
         run: |
           echo "Downloading bulk XML file from S3 (~2.6GB, this may take several minutes)..."
 
@@ -178,30 +158,19 @@ jobs:
       - name: Create collection summary
         run: |
           if [ "${{ steps.s3-cache.outputs.raw-cache-hit }}" == "true" ]; then
-            echo "# Data Collection (Raw Data Cached)" >> $GITHUB_STEP_SUMMARY
+            echo "# Data Collection (Cached)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Raw data downloaded from S3 cache**" >> $GITHUB_STEP_SUMMARY
-            echo "Skipped 10-minute API collection" >> $GITHUB_STEP_SUMMARY
+            echo "Skipped bulk XML download and parsing" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**S3 Key:** ${{ steps.s3-cache.outputs.raw-s3-key }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "# Data Labeling Complete" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.s3-cache.outputs.raw-cache-hit }}" != "true" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ env.DATA_SOURCE }}" = "bulk_xml" ]; then
-              echo "**Data Source:** ClinicalTrials.gov Bulk XML (parsed from ~500K trials)" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "**Data Source:** ClinicalTrials.gov API (collected fresh)" >> $GITHUB_STEP_SUMMARY
-            fi
-          fi
-          if [ "${{ env.MAX_STUDIES }}" = "0" ]; then
-            echo "**Max Studies:** Unlimited (all available)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "**Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
+            echo "# Data Collection Complete" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Data Source:** ClinicalTrials.gov Bulk XML (~500K trials parsed)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           fi
-          echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "## Generated Files" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
@@ -272,7 +241,7 @@ jobs:
             data/clinical_trials_binary.csv \
             docs/eda_raw_data.html \
             --timestamp "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
-            --data-source "${{ env.DATA_SOURCE == 'bulk_xml' && 'Bulk XML (~500K trials)' || 'ClinicalTrials.gov API' }}" \
+            --data-source "ClinicalTrials.gov Bulk XML (~500K trials)" \
             --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Upload EDA report
@@ -400,7 +369,7 @@ jobs:
             data/clinical_trials_features.csv \
             docs/eda_features.html \
             --timestamp "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
-            --data-source "${{ env.DATA_SOURCE == 'bulk_xml' && 'Bulk XML (~500K trials)' || 'ClinicalTrials.gov API' }}" \
+            --data-source "ClinicalTrials.gov Bulk XML (~500K trials)" \
             --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Upload EDA report
@@ -522,7 +491,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
           publish_branch: gh-pages
-          commit_message: "Dashboard + EDA: ${{ env.MAX_STUDIES }} trials"
+          commit_message: "Dashboard + EDA Reports - $(date -u +%Y-%m-%d)"
 
       - name: Commit results
         run: |
@@ -530,7 +499,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add models/*.pkl reports/model_comparison.csv docs/index.html || true
           if ! git diff --staged --quiet; then
-            git commit -m "Pipeline results: ${{ env.MAX_STUDIES }} trials - $(date -u +%Y-%m-%d)"
+            git commit -m "Pipeline results - $(date -u +%Y-%m-%d)"
             git push
           fi
 
@@ -539,12 +508,7 @@ jobs:
           echo "# ML Pipeline Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Configuration" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ env.DATA_SOURCE }}" = "bulk_xml" ]; then
-            echo "- **Data Source:** Bulk XML (~500K trials parsed)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- **Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "- **Data Source:** ClinicalTrials.gov Bulk XML (~500K trials)" >> $GITHUB_STEP_SUMMARY
           echo "- **Models Trained:** 5 (in parallel)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
