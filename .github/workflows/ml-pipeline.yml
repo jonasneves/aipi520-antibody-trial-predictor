@@ -1,5 +1,5 @@
 name: ML Pipeline
-run-name: "ML Pipeline - Bulk XML"
+run-name: "ML Pipeline"
 
 on:
   push:
