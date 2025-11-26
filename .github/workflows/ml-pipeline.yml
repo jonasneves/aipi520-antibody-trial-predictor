@@ -477,7 +477,7 @@ jobs:
 
   # Stage 3: Aggregate Results and Compare
   aggregate:
-    needs: train
+    needs: [train, eda-raw, eda-features]
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -501,6 +501,13 @@ jobs:
           merge-multiple: true
           path: models
 
+      - name: Download EDA reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: eda-*-report
+          merge-multiple: true
+          path: docs
+
       - name: Generate report (CSV + HTML)
         run: |
           mkdir -p reports docs
@@ -509,13 +516,13 @@ jobs:
             --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --repo "${{ github.repository }}"
 
-      - name: Deploy dashboard
+      - name: Deploy dashboard and EDA reports
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
           publish_branch: gh-pages
-          commit_message: "Dashboard: ${{ env.MAX_STUDIES }} trials"
+          commit_message: "Dashboard + EDA: ${{ env.MAX_STUDIES }} trials"
 
       - name: Commit results
         run: |
@@ -539,6 +546,13 @@ jobs:
             echo "- **Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
           fi
           echo "- **Models Trained:** 5 (in parallel)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## Published Reports" >> $GITHUB_STEP_SUMMARY
+          REPO_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          echo "- 📊 [Model Dashboard](${REPO_URL}/model_dashboard.html)" >> $GITHUB_STEP_SUMMARY
+          echo "- 📈 [Raw Data EDA](${REPO_URL}/eda_raw_data.html)" >> $GITHUB_STEP_SUMMARY
+          echo "- 📉 [Engineered Features EDA](${REPO_URL}/eda_features.html)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -f reports/model_comparison.csv ]; then

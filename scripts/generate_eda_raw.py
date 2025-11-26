@@ -10,6 +10,9 @@ Analyzes clinical_trials_binary.csv and generates an interactive HTML report wit
 - Temporal trends
 - Antibody type distribution
 - Class balance
+- Top 20 most common conditions
+- Intervention type distribution
+- Phase vs Status cross-analysis heatmap
 """
 
 import sys
@@ -226,6 +229,105 @@ def create_outcome_chart(df: pd.DataFrame) -> go.Figure:
 
     return fig
 
+def create_condition_chart(df: pd.DataFrame) -> go.Figure:
+    """Create top 20 conditions chart"""
+    if 'conditions' not in df.columns:
+        return None
+
+    # Extract individual conditions
+    all_conditions = []
+    for conditions in df['conditions'].dropna():
+        all_conditions.extend([c.strip() for c in str(conditions).split(',')])
+
+    if not all_conditions:
+        return None
+
+    condition_counts = pd.Series(all_conditions).value_counts().head(20)
+
+    fig = go.Figure(data=[
+        go.Bar(
+            y=condition_counts.index[::-1],  # Reverse for better readability
+            x=condition_counts.values[::-1],
+            orientation='h',
+            marker_color='teal',
+            text=condition_counts.values[::-1],
+            textposition='auto',
+        )
+    ])
+
+    fig.update_layout(
+        title=f'Top 20 Most Common Conditions<br><sub>Total unique conditions: {len(pd.Series(all_conditions).unique()):,}</sub>',
+        xaxis_title='Number of Trials',
+        yaxis_title='Condition',
+        height=600,
+        template='plotly_white'
+    )
+
+    return fig
+
+def create_intervention_type_chart(df: pd.DataFrame) -> go.Figure:
+    """Create intervention type distribution chart"""
+    if 'intervention_types' not in df.columns:
+        return None
+
+    # Extract individual intervention types
+    all_interventions = []
+    for interventions in df['intervention_types'].dropna():
+        all_interventions.extend([i.strip() for i in str(interventions).split(',')])
+
+    if not all_interventions:
+        return None
+
+    intervention_counts = pd.Series(all_interventions).value_counts()
+
+    fig = go.Figure(data=[
+        go.Pie(
+            labels=intervention_counts.index,
+            values=intervention_counts.values,
+            hole=0.3,
+            textinfo='label+percent',
+        )
+    ])
+
+    fig.update_layout(
+        title='Distribution of Intervention Types',
+        height=500,
+        template='plotly_white'
+    )
+
+    return fig
+
+def create_phase_status_heatmap(df: pd.DataFrame) -> go.Figure:
+    """Create phase vs status cross-analysis heatmap"""
+    phase_col = 'phase' if 'phase' in df.columns else 'phases'
+
+    # Create crosstab with percentages
+    crosstab = pd.crosstab(df[phase_col], df['overall_status'], normalize='index') * 100
+
+    # Round for display
+    crosstab_display = crosstab.round(1)
+
+    fig = go.Figure(data=go.Heatmap(
+        z=crosstab.values,
+        x=crosstab.columns,
+        y=crosstab.index,
+        colorscale='YlOrRd',
+        text=crosstab_display.values,
+        texttemplate='%{text:.1f}%',
+        textfont={"size": 10},
+        colorbar=dict(title='Percentage')
+    ))
+
+    fig.update_layout(
+        title='Clinical Trial Status by Phase (%)',
+        xaxis_title='Status',
+        yaxis_title='Phase',
+        height=500,
+        template='plotly_white'
+    )
+
+    return fig
+
 def generate_html_report(df: pd.DataFrame, output_path: Path, metadata: dict):
     """Generate complete HTML report"""
     print("\nGenerating HTML report...")
@@ -239,6 +341,9 @@ def generate_html_report(df: pd.DataFrame, output_path: Path, metadata: dict):
         'temporal': create_temporal_chart(df),
         'antibody': create_antibody_type_chart(df),
         'outcome': create_outcome_chart(df),
+        'conditions': create_condition_chart(df),
+        'interventions': create_intervention_type_chart(df),
+        'phase_status': create_phase_status_heatmap(df),
     }
 
     # Remove None charts
