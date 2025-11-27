@@ -33,18 +33,16 @@ Predict clinical trial success for monoclonal antibody (mAb) therapeutics using 
 
 **Methodology:**
 - Post-2024 trials filtered (22 trials)
-- Text features excluded (50 TF-IDF features)
-- `has_start_date` flag added for trials with missing dates (45% of dataset)
-- Temporal features set to 0 for missing dates
-- Stratified random split ensures balanced class distribution in train/test sets
+- Missing start dates handled with binary flag; temporal features set to 0 (45% of dataset)
+- Stratified random split (80/20 train/test)
 
-**Note:** Previous time-based split (pre-2023 train, 2023+ test) showed temporal confounding - recent trials had 28.6% success vs 72.5% for older trials due to incomplete follow-up time. Random split provides more reliable performance estimates.
+**Note:** Time-based split showed temporal confounding (28.6% vs 72.5% success) due to incomplete follow-up. Random split provides more reliable estimates.
 
 ## Quick Start
 
 ```bash
 make install    # Install dependencies
-make pipeline   # Run complete pipeline (collect → label → features → train → dashboard)
+make pipeline   # Run complete pipeline (collect → label → features → train → reports)
 ```
 
 View results:
@@ -75,8 +73,14 @@ src/                    # ML pipeline
 scripts/
 ├── parse_bulk_xml.py   # S3 download & parse (~500K trials)
 ├── train_single_model.py  # Individual model training
-├── generate_eda_*.py   # EDA report generation
-└── charts/             # Plotly visualization modules
+├── base_report_generator.py  # Base class for report generation
+├── generate_overview.py      # Model comparison dashboard
+├── generate_eda_raw.py       # Raw data EDA report
+├── generate_eda_features.py  # Features EDA report
+└── charts/
+    ├── utils.py        # Shared chart utilities
+    ├── raw_data/       # Raw data visualizations
+    └── features/       # Feature analysis charts
 
 data/                   # Generated datasets (CSV)
 models/                 # Trained models (.pkl)
@@ -93,11 +97,11 @@ make install
 
 ### Automated Pipeline (GitHub Actions)
 Push to main branch triggers:
-1. Bulk XML download from S3 (or use cache)
-2. Data labeling (7,116 → 7,094 trials after temporal filtering) & feature engineering (32 features)
-3. Models trained with time-based validation (Gradient Boosting, Random Forest, XGBoost, Logistic Regression, Decision Tree)
-4. EDA reports & model dashboard generated with interactive Plotly visualizations
-5. Results automatically deployed to GitHub Pages
+1. Bulk XML download from S3 (cached when available)
+2. Data labeling & feature engineering → 7,094 trials, 32 features
+3. Model training (5 classifiers with stratified random split)
+4. Report generation (model dashboard + EDA reports)
+5. Deployment to GitHub Pages
 
 ### Manual Pipeline
 
@@ -112,51 +116,48 @@ make collect    # Download and parse bulk XML from S3 (7,116 trials)
 make label      # Label trials as success/failure
 make features   # Engineer 32 features
 make train      # Train models with stratified random split
-make dashboard  # Generate comparison dashboard with interactive charts
+make reports    # Generate all reports (model dashboard + EDA reports)
 ```
 
 ### Training Individual Models
 
 ```bash
 python scripts/train_single_model.py <model_code> data/clinical_trials_features.csv models/
-# Add --temporal-split flag to use time-based split (not recommended due to temporal confounding)
+# Use --temporal-split for time-based split (not recommended)
 ```
 
-Model codes: `lr` (Logistic Regression), `dt` (Decision Tree), `rf` (Random Forest), `gb` (Gradient Boosting), `xgb` (XGBoost)
+Model codes: `lr`, `dt`, `rf`, `gb`, `xgb`
 
-**Default:** Random stratified split (80% train, 20% test)
+Default: Random stratified split (80/20)
 
 ## Features (32 Total)
 
-**Antibody-Specific (12 features):**
-- Type classification: murine, chimeric, humanized, fully_human (4 binary features)
-- Target mechanisms: checkpoint inhibitors (PD-1/PD-L1), growth factors (HER2/EGFR), cytokines, CD markers (4 binary features)
-- Biomarker selection: HER2+, PD-L1+, EGFR+ (1 binary feature)
-- Combination therapy indicators (1 binary feature)
-- Favorable indication flags (1 binary feature)
-- Antibody-specific metadata (1 feature)
+**Antibody-Specific (12):**
+- Type classification: murine, chimeric, humanized, fully_human (4)
+- Target mechanisms: checkpoint inhibitors (PD-1/PD-L1), growth factors (HER2/EGFR), cytokines, CD markers (4)
+- Biomarker selection: HER2+, PD-L1+, EGFR+ (1)
+- Combination therapy (1)
+- Favorable indication (1)
+- Antibody metadata (1)
 
-**Traditional Trial Features (20 features):**
-- Trial design: interventional/observational, phase indicators (6 features)
-- Enrollment metrics: raw count, log-transformed count (2 features)
-- Disease categories: cancer, cardiovascular, neurological, diabetes, infectious, respiratory, autoimmune, mental health (8 features)
-- Sponsor: type (industry/NIH), trial count, major sponsor flag (3 features)
-- Trial metadata: number of conditions (1 feature)
+**Traditional Trial Features (20):**
+- Trial design: interventional/observational, phase indicators (6)
+- Enrollment metrics: raw, log-transformed (2)
+- Disease categories: cancer, cardiovascular, neurological, diabetes, infectious, respiratory, autoimmune, mental health (8)
+- Sponsor: type, trial count, major sponsor flag (3)
+- Number of conditions (1)
 
-**Temporal Features (4 features):**
-- `has_start_date`: Binary flag indicating valid start date (1 feature)
-- Start year, years since start, recent trial flag (3 features)
-- **Note:** 45% of trials have missing dates → set to 0
-
-**Text Features:** Excluded (50 TF-IDF features not used)
+**Temporal Features (4):**
+- `has_start_date` flag (1)
+- Start year, years since start, recent trial flag (3)
 
 ## Methodology
 
 1. **Data Collection:** Stream parse bulk XML from S3, filter Phase 2/3 interventional antibody trials → 7,116 trials
-2. **Data Labeling:** Refined binary classification (Completed/Approved = success; Terminated/Withdrawn for efficacy/safety = failure; Administrative terminations excluded) → 7,094 trials (22 post-2024 trials filtered)
-3. **Feature Engineering:** Extract 32 domain-specific features: 12 antibody-specific, 20 traditional trial, 4 temporal (no text features). `has_start_date` flag added for missing dates (45% of dataset)
-4. **Model Training:** Train classifiers with stratified random split (Gradient Boosting, Random Forest, XGBoost, Logistic Regression, Decision Tree) using stratified 3-fold CV. 80/20 train/test split
-5. **Evaluation:** ROC AUC (primary metric), plus F1, accuracy
+2. **Data Labeling:** Binary classification (Completed/Approved = success; Terminated/Withdrawn for efficacy/safety = failure) → 7,094 trials
+3. **Feature Engineering:** 32 features (12 antibody-specific, 20 traditional, 4 temporal)
+4. **Model Training:** Stratified random split (80/20), 3-fold CV
+5. **Evaluation:** ROC AUC (primary), F1, accuracy
 
 ## Background
 

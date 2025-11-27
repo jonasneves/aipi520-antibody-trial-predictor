@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Generate HTML report with interactive visualizations for ML pipeline results.
+Generate model comparison overview dashboard with interactive visualizations.
 
 Usage:
-    python scripts/generate_report.py <results_dir> <csv_output> <html_output> [options]
+    python scripts/generate_overview.py <results_dir> <csv_output> <html_output> [options]
 
 Options:
     --timestamp TIMESTAMP       Timestamp when results were generated
@@ -18,6 +18,8 @@ import argparse
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from jinja2 import Template
+from site_config import SITE_CONFIG
 
 
 # Professional color palette
@@ -342,41 +344,47 @@ def create_results_table(results):
 def build_content_sections(results, dataset_stats, best_model):
     """Build all content sections for the report."""
     sections = []
+    cfg = SITE_CONFIG['overview_content']
 
     # Project Overview section
+    po = cfg['project_overview']
+    ps = po['problem_statement']
+    ds = po['data_source']
+    sl = po['success_labeling']
+
     sections.append(f'''
         <section class="section animate-in">
             <div class="section-header">
-                <h2 class="section-title">Project Overview</h2>
-                <p class="section-description">Real-world ML challenge: predicting clinical trial success for antibody therapeutics</p>
+                <h2 class="section-title">{po['title']}</h2>
+                <p class="section-description">{po['description']}</p>
             </div>
             <div class="card">
                 <div class="info-grid">
                     <div class="info-block">
-                        <h3>Problem Statement
+                        <h3>{ps['title']}
                             <span class="info-tooltip">
                                 <span class="info-icon">i</span>
                                 <span class="tooltip-content">
-                                    <strong>Why Antibody Trials?</strong><br>Antibodies represent ~30% of the pharmaceutical development pipeline with high commercial value ($237B+ market), but face historically high failure rates.
+                                    <strong>{ps['tooltip_title']}</strong><br>{ps['tooltip_text']}
                                 </span>
                             </span>
                         </h3>
-                        <p>Predict probability of success for Phase 2 & 3 antibody clinical trials. With {dataset_stats['failure_rate']:.1f}% failure rate observed in our dataset and costs of $10-100M+ per trial, early prediction can save pharmaceutical companies significant resources.</p>
+                        <p>{ps['text'].format(failure_rate=f"{dataset_stats['failure_rate']:.1f}")}</p>
                     </div>
                     <div class="info-block">
-                        <h3>Data Source</h3>
-                        <p><strong>ClinicalTrials.gov Bulk XML Download</strong></p>
-                        <p>Streaming parse from S3-hosted bulk XML archive</p>
-                        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">Phase 2/3 interventional antibody trials (completed/terminated/withdrawn status)</p>
+                        <h3>{ds['title']}</h3>
+                        <p><strong>{ds['primary']}</strong></p>
+                        <p>{ds['secondary']}</p>
+                        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">{ds['details']}</p>
                     </div>                    <div class="info-block">
-                        <h3>Success Labeling Strategy</h3>
-                        <p><strong>Refined Binary Classification:</strong></p>
+                        <h3>{sl['title']}</h3>
+                        <p><strong>{sl['subtitle']}</strong></p>
                         <ul>
-                            <li><strong>Success (1):</strong> COMPLETED, APPROVED_FOR_MARKETING, AVAILABLE</li>
-                            <li><strong>Failure (0):</strong> TERMINATED/WITHDRAWN/SUSPENDED for efficacy or safety reasons</li>
-                            <li><strong>Excluded:</strong> Trials terminated for administrative reasons (funding, enrollment, business decisions)</li>
+                            <li><strong>{sl['success_label']}</strong> {sl['success_criteria']}</li>
+                            <li><strong>{sl['failure_label']}</strong> {sl['failure_criteria']}</li>
+                            <li><strong>{sl['excluded_label']}</strong> {sl['excluded_criteria']}</li>
                         </ul>
-                        <p style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">This approach focuses on efficacy outcomes rather than administrative completion.</p>
+                        <p style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">{sl['note']}</p>
                     </div>
                 </div>
             </div>
@@ -384,31 +392,36 @@ def build_content_sections(results, dataset_stats, best_model):
 
     # Dataset statistics if available
     if dataset_stats:
+        dstats = cfg['dataset_stats']
+        sc = dstats['sample_counts']
+        cd = dstats['class_distribution']
+        dq = dstats['data_quality']
+
         sections.append(f'''
             <div class="card">
-                <h3 style="margin-bottom: 1rem; color: var(--primary-cyan); font-size: 1.25rem; font-weight: 600;">Dataset Statistics</h3>
+                <h3 style="margin-bottom: 1rem; color: var(--primary-cyan); font-size: 1.25rem; font-weight: 600;">{dstats['title']}</h3>
                 <div class="info-grid">
                     <div class="info-block">
-                        <h3>Sample Counts</h3>
+                        <h3>{sc['title']}</h3>
                         <ul>
-                            <li><strong>Total Samples:</strong> {dataset_stats['total_samples']:,} trials</li>
-                            <li><strong>Training Set:</strong> {dataset_stats['train_size']:,} samples ({dataset_stats['train_pct']:.1f}%)</li>
-                            <li><strong>Test Set:</strong> {dataset_stats['test_size']:,} samples ({dataset_stats['test_pct']:.1f}%)</li>
+                            <li><strong>{sc['total_label']}</strong> {dataset_stats['total_samples']:,} trials</li>
+                            <li><strong>{sc['train_label']}</strong> {dataset_stats['train_size']:,} samples ({dataset_stats['train_pct']:.1f}%)</li>
+                            <li><strong>{sc['test_label']}</strong> {dataset_stats['test_size']:,} samples ({dataset_stats['test_pct']:.1f}%)</li>
                         </ul>
                     </div>
                     <div class="info-block">
-                        <h3>Class Distribution (Test Set)</h3>
+                        <h3>{cd['title']}</h3>
                         <ul>
-                            <li><strong>Failure (Class 0):</strong> {dataset_stats['class_0_count']:,} trials ({dataset_stats['class_0_pct']:.1f}%)</li>
-                            <li><strong>Success (Class 1):</strong> {dataset_stats['class_1_count']:,} trials ({dataset_stats['class_1_pct']:.1f}%)</li>
+                            <li><strong>{cd['failure_label']}</strong> {dataset_stats['class_0_count']:,} trials ({dataset_stats['class_0_pct']:.1f}%)</li>
+                            <li><strong>{cd['success_label']}</strong> {dataset_stats['class_1_count']:,} trials ({dataset_stats['class_1_pct']:.1f}%)</li>
                         </ul>
                     </div>
                     <div class="info-block">
-                        <h3>Data Quality</h3>
+                        <h3>{dq['title']}</h3>
                         <ul>
-                            <li><strong>Source:</strong> ClinicalTrials.gov Bulk XML (S3)</li>
-                            <li><strong>Validation:</strong> Random stratified train/test split (80/20)</li>
-                            <li><strong>Features:</strong> 32 domain-specific engineered features</li>
+                            <li><strong>{dq['source_label']}</strong> {dq['source_value']}</li>
+                            <li><strong>{dq['validation_label']}</strong> {dq['validation_value']}</li>
+                            <li><strong>{dq['features_label']}</strong> {dq['features_value']}</li>
                         </ul>
                     </div>
                 </div>
@@ -416,48 +429,42 @@ def build_content_sections(results, dataset_stats, best_model):
         ''')
 
     # Feature engineering card
+    fe = cfg['feature_engineering']
+    feature_pills_html = '\n'.join([f'<span class="pill">{group}</span>' for group in fe['feature_groups']])
+
     sections.append(f'''
             <div class="card">
                 <h3 style="margin-bottom: 0.75rem; color: var(--primary-cyan); font-size: 1.25rem; font-weight: 600;">
-                    Feature Engineering - 32 Features
+                    {fe['title']}
                 </h3>
-                <p style="color: var(--text-body); margin-bottom: 1rem;">Domain-specific feature set:</p>
+                <p style="color: var(--text-body); margin-bottom: 1rem;">{fe['subtitle']}</p>
                 <div class="feature-pills">
-                    <span class="pill">Antibody Type & Mechanism (12 features)</span>
-                    <span class="pill">Trial Design & Enrollment (8 features)</span>
-                    <span class="pill">Disease Categories (8 features)</span>
-                    <span class="pill">Sponsor Characteristics (3 features)</span>
-                    <span class="pill">Temporal Features (4 features + has_start_date flag)</span>
-                    <span class="pill">Trial Metadata (1 feature)</span>
+                    {feature_pills_html}
                 </div>
                 <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-secondary);">
-                    <strong>Antibody-specific features:</strong> Type classification (murine/chimeric/humanized/fully_human), target mechanisms (checkpoint inhibitors, growth factors, cytokines, CD markers), biomarker selection, combination therapy indicators
+                    <strong>Antibody-specific features:</strong> {fe['antibody_features']}
                     <br><br>
-                    <strong>Methodology:</strong> Post-2024 trials filtered (22), text features excluded, has_start_date flag for missing dates (45%), stratified random split
+                    <strong>Methodology:</strong> {fe['methodology']}
                 </p>
             </div>
         </section>
     ''')
 
     # Model performance table
+    mp = cfg['model_performance']
+    table_headers = ''.join([f'<th>{h}</th>' for h in mp['table_headers']])
+
     sections.append(f'''
         <section class="section animate-in">
             <div class="section-header">
-                <h2 class="section-title">Model Performance Summary</h2>
-                <p class="section-description">Comprehensive comparison of all 5 models across key metrics</p>
+                <h2 class="section-title">{mp['title']}</h2>
+                <p class="section-description">{mp['description']}</p>
             </div>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Model</th>
-                            <th>Accuracy</th>
-                            <th>Precision</th>
-                            <th>Recall</th>
-                            <th>F1 Score</th>
-                            <th>ROC AUC</th>
-                            <th>CV ROC AUC (Mean ± Std)</th>
-                            <th>Training Time</th>
+                            {table_headers}
                         </tr>
                     </thead>
                     <tbody>
@@ -469,8 +476,8 @@ def build_content_sections(results, dataset_stats, best_model):
 
         <section class="section animate-in">
             <div class="section-header">
-                <h2 class="section-title">Performance Metrics Comparison</h2>
-                <p class="section-description">Interactive visualization of model performance across all evaluation metrics</p>
+                <h2 class="section-title">{cfg['metrics_comparison']['title']}</h2>
+                <p class="section-description">{cfg['metrics_comparison']['description']}</p>
             </div>
             <div class="chart-container">
                 {create_plot(lambda: create_metrics_comparison(results), 'metrics-comparison')}
@@ -479,8 +486,8 @@ def build_content_sections(results, dataset_stats, best_model):
 
         <section class="section animate-in">
             <div class="section-header">
-                <h2 class="section-title">Cross-Validation Results</h2>
-                <p class="section-description">Model consistency evaluated through 3-fold stratified cross-validation</p>
+                <h2 class="section-title">{cfg['cv_results']['title']}</h2>
+                <p class="section-description">{cfg['cv_results']['description']}</p>
             </div>
             <div class="chart-container">
                 {create_plot(lambda: create_cv_scores_plot(results), 'cv-scores')}
@@ -491,11 +498,12 @@ def build_content_sections(results, dataset_stats, best_model):
     # Feature importance if available
     feature_plot = create_feature_importance_plot(best_model)
     if feature_plot:
+        fi = cfg['feature_importance']
         sections.append(f'''
         <section class="section animate-in">
             <div class="section-header">
-                <h2 class="section-title">Feature Importance Analysis</h2>
-                <p class="section-description">Most influential features for predicting clinical trial success using the best model ({best_model['model_name']})</p>
+                <h2 class="section-title">{fi['title']}</h2>
+                <p class="section-description">{fi['description'].format(model_name=best_model['model_name'])}</p>
             </div>
             <div class="chart-container">
                 {feature_plot.to_html(include_plotlyjs=False, div_id='feature-importance')}
@@ -504,17 +512,18 @@ def build_content_sections(results, dataset_stats, best_model):
         ''')
 
     # Confusion matrices
+    cm = cfg['confusion_matrices']
     sections.append(f'''
         <section class="section animate-in">
             <div class="section-header">
-                <h2 class="section-title">Confusion Matrices</h2>
-                <p class="section-description">Detailed breakdown of predictions vs. actual outcomes for each model</p>
+                <h2 class="section-title">{cm['title']}</h2>
+                <p class="section-description">{cm['description']}</p>
             </div>
             <div class="chart-container">
                 {create_plot(lambda: create_confusion_matrices(results), 'confusion-matrices')}
             </div>
             <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 1rem; text-align: center;">
-                Values show absolute counts with percentages. Class 0 = Failure | Class 1 = Success
+                {cm['note']}
             </p>
         </section>
     ''')
@@ -530,43 +539,46 @@ def generate_html_report(results, output_file, timestamp=None, workflow_url=None
     # Load template
     template_path = Path(__file__).parent / 'templates' / 'dashboard_template.html'
     with open(template_path) as f:
-        template = f.read()
+        template = Template(f.read())
 
     # Build content
     content = build_content_sections(results, dataset_stats, best_model)
 
     # Build summary cards (metrics grid)
     summary_cards_html = f'''
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); position: relative; overflow: hidden;">
-            <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--primary-blue);"></div>
-            <div style="font-size: 0.875rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; font-weight: 600;">Best Model</div>
-            <div style="font-size: 2.5rem; font-weight: 700; line-height: 1; color: var(--primary-blue);">{best_model['model_name']}</div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin: 30px 0;">
+        <div class="stat-card">
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--primary-blue), transparent);"></div>
+            <div class="stat-label">Best Model</div>
+            <div class="stat-value" style="color: var(--primary-blue);">{best_model['model_name']}</div>
         </div>
-        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); position: relative; overflow: hidden;">
-            <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--primary-teal);"></div>
-            <div style="font-size: 0.875rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; font-weight: 600;">ROC AUC Score</div>
-            <div style="font-size: 2.5rem; font-weight: 700; line-height: 1; color: var(--primary-teal);">{best_model['roc_auc']:.4f}</div>
+        <div class="stat-card">
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--primary-teal), transparent);"></div>
+            <div class="stat-label">ROC AUC Score</div>
+            <div class="stat-value" style="color: var(--primary-teal);">{best_model['roc_auc']:.4f}</div>
         </div>
-        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); position: relative; overflow: hidden;">
-            <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent-orange);"></div>
-            <div style="font-size: 0.875rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; font-weight: 600;">F1 Score</div>
-            <div style="font-size: 2.5rem; font-weight: 700; line-height: 1; color: var(--accent-orange);">{best_model['f1']:.4f}</div>
+        <div class="stat-card">
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--accent-orange), transparent);"></div>
+            <div class="stat-label">F1 Score</div>
+            <div class="stat-value" style="color: var(--accent-orange);">{best_model['f1']:.4f}</div>
         </div>
     </div>
     '''
 
-    # Render template using replace (like EDA scripts)
-    html = template.replace('{{ title }}', 'Clinical Trial Outcome Prediction')
-    html = html.replace('{{ header_icon }}', '')
-    html = html.replace('{{ raw_active }}', '')
-    html = html.replace('{{ features_active }}', '')
-    html = html.replace('{{ metadata.timestamp }}', timestamp or 'Not specified')
-    html = html.replace('{{ metadata.data_source }}', 'ClinicalTrials.gov API')
-    html = html.replace('{{ metadata.workflow_url }}', workflow_url or '#')
-    html = html.replace('{{ summary_cards }}', summary_cards_html)
-    html = html.replace('{{ content }}', content)
-    html = html.replace('{{ insights }}', '')
+    # Render template with Jinja2
+    html = template.render(
+        config=SITE_CONFIG,
+        title='Clinical Trial Outcome Prediction',
+        active_page='overview',
+        metadata={
+            'timestamp': timestamp or 'Not specified',
+            'data_source': 'ClinicalTrials.gov API',
+            'workflow_url': workflow_url or '#',
+        },
+        summary_cards=summary_cards_html,
+        content=content,
+        insights='',
+    )
 
     # Write output
     output_path = Path(output_file)

@@ -1,4 +1,4 @@
-.PHONY: help install collect label features train dashboard clean
+.PHONY: help install collect label features train reports clean
 
 help:
 	@echo "Antibody Trial Predictor - Available Commands"
@@ -8,8 +8,8 @@ help:
 	@echo "make label        Label trials as success/failure"
 	@echo "make features     Engineer features from labeled data"
 	@echo "make train        Train all 5 models in parallel"
-	@echo "make dashboard    Generate model comparison dashboard"
-	@echo "make pipeline     Run complete pipeline (collect → label → features → train → dashboard)"
+	@echo "make reports      Generate all reports (model dashboard + EDA reports)"
+	@echo "make pipeline     Run complete pipeline (collect → label → features → train → reports)"
 	@echo "make clean        Remove generated data and model files"
 	@echo ""
 	@echo "Quick Start: make pipeline"
@@ -40,21 +40,30 @@ train:
 	wait
 	@echo "✓ All models trained"
 
-dashboard:
-	@echo "Generating reports..."
+reports:
+	@echo "Generating all reports..."
 	@mkdir -p reports docs
-	python scripts/aggregate_results.py models reports/model_comparison.csv
-	python scripts/generate_report.py models reports/model_comparison.csv docs/model_dashboard.html
-	@echo "✓ Dashboard generated at docs/model_dashboard.html"
+	@echo "Generating model dashboard..."
+	python scripts/generate_overview.py models reports/model_comparison.csv docs/index.html
+	@echo "Generating EDA reports..."
+	python scripts/generate_eda_raw.py data/clinical_trials_binary.csv docs/eda_raw_data.html \
+		--timestamp "$$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
+		--data-source "ClinicalTrials.gov API"
+	python scripts/generate_eda_features.py data/clinical_trials_features.csv docs/eda_features.html \
+		--timestamp "$$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
+		--data-source "ClinicalTrials.gov API"
+	@echo "✓ All reports generated"
+	@echo "  - Model Dashboard: docs/index.html"
+	@echo "  - Raw Data EDA: docs/eda_raw_data.html"
+	@echo "  - Features EDA: docs/eda_features.html"
 	@echo "View: open docs/index.html"
 
-pipeline: collect label features train dashboard
+pipeline: collect label features train reports
 	@echo ""
 	@echo "✓ Pipeline Complete!"
 	@echo "  - Data: data/clinical_trials_features.csv"
 	@echo "  - Models: models/"
-	@echo "  - Landing Page: docs/index.html"
-	@echo "  - Model Dashboard: docs/model_dashboard.html"
+	@echo "  - Reports: docs/index.html (+ EDA reports)"
 
 clean:
 	@echo "Cleaning generated files..."

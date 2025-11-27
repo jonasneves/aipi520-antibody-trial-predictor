@@ -58,9 +58,9 @@
 
         .header {
             background: linear-gradient(135deg,
-                rgba(37, 99, 235, 0.06) 0%,
-                rgba(8, 145, 178, 0.05) 50%,
-                rgba(6, 182, 212, 0.04) 100%);
+                rgba(37, 99, 235, 0.12) 0%,
+                rgba(8, 145, 178, 0.10) 50%,
+                rgba(6, 182, 212, 0.08) 100%);
             color: var(--text-primary);
             padding: 3rem 2rem;
             text-align: center;
@@ -81,6 +81,14 @@
         .header p {
             font-size: 1.1em;
             color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .header .project-info {
+            font-size: 0.9em;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.5px;
         }
 
         .nav-bar {
@@ -111,9 +119,24 @@
         }
 
         .nav-link.active {
-            background: var(--primary-teal);
+            background: var(--primary-blue);
             color: white;
-            border-color: var(--primary-teal);
+            border-color: var(--primary-blue);
+        }
+
+        .nav-icon {
+            background: var(--primary-blue);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-right: 0.25rem;
+        }
+
+        .nav-link.active .nav-icon {
+            background: white;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .content {
@@ -121,18 +144,17 @@
         }
 
         .metadata {
-            background: var(--bg-card);
-            padding: 1.5rem;
+            background: #fafbfc;
+            border: 1px solid rgba(37, 99, 235, 0.08);
+            padding: 12px 16px;
             border-radius: 8px;
-            margin: 2rem 0;
-            border: 1px solid var(--border-color);
-            border-left: 3px solid var(--primary-teal);
+            margin: 16px 0;
         }
 
         .metadata p {
-            margin: 0.5rem 0;
-            font-size: 0.9em;
-            color: var(--text-body);
+            margin: 4px 0;
+            color: var(--text-secondary);
+            font-size: 0.85em;
         }
 
         .metadata strong {
@@ -162,64 +184,58 @@
 
         .summary-stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 1rem;
-            margin: 2rem auto;
-            max-width: 800px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
         }
 
         .stat-card {
             background: var(--bg-card);
-            color: var(--text-primary);
-            padding: 1.5rem 1rem;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08),
-                        0 1px 2px rgba(0, 0, 0, 0.06);
             border: 1px solid var(--border-color);
-            transition: all 0.2s ease;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
             position: relative;
             overflow: hidden;
         }
 
         .stat-card::before {
-            content: '';
+            content: "";
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--primary-teal), var(--primary-blue));
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-blue), transparent);
         }
 
         .stat-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
-                        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.15);
         }
 
         .stat-value {
-            font-size: 2em;
+            font-size: 2.5em;
             font-weight: 700;
-            margin-bottom: 0.5rem;
-            color: var(--primary-teal);
+            color: var(--primary-blue);
         }
 
         .stat-label {
-            font-size: 0.75em;
+            font-size: 0.875em;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 1px;
             font-weight: 600;
         }
 
         .chart {
-            margin: 2.5rem 0;
+            margin: 30px 0;
             background: var(--bg-card);
-            padding: 1.5rem;
-            border-radius: 8px;
             border: 1px solid var(--border-color);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
         }
 
         .insights-box {
@@ -284,12 +300,24 @@
             padding: 2rem;
             margin-bottom: 1.5rem;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: visible;
+        }
+
+        .card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-blue), transparent);
         }
 
         .card h3 {
             font-size: 1.1rem;
             font-weight: 600;
-            color: var(--text-primary);
+            color: var(--primary-teal);
             margin-bottom: 1rem;
         }
 
@@ -333,6 +361,7 @@
             position: relative;
             display: inline-block;
             margin-left: 0.25rem;
+            z-index: 9999;
         }
 
         .info-icon {
@@ -352,9 +381,9 @@
         .tooltip-content {
             display: none;
             position: absolute;
-            bottom: 125%;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 50%;
+            left: calc(100% + 10px);
+            transform: translateY(-50%);
             background: var(--text-primary);
             color: white;
             padding: 0.75rem;
@@ -362,8 +391,20 @@
             width: 250px;
             font-size: 0.85rem;
             line-height: 1.4;
-            z-index: 1000;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            white-space: normal;
+        }
+
+        .tooltip-content::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            right: 100%;
+            margin-top: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent var(--text-primary) transparent transparent;
         }
 
         .info-tooltip:hover .tooltip-content {
@@ -377,12 +418,12 @@
         }
 
         .pill {
-            background: var(--bg-secondary);
-            color: var(--text-body);
+            background: rgba(8, 145, 178, 0.15);
+            color: var(--primary-cyan);
             padding: 0.5rem 1rem;
             border-radius: 20px;
             font-size: 0.85rem;
-            border: 1px solid var(--border-color);
+            border: 1px solid rgba(6, 182, 212, 0.4);
             font-weight: 500;
         }
 
@@ -400,14 +441,14 @@
         }
 
         thead {
-            background: var(--bg-secondary);
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-teal));
         }
 
         th {
             padding: 1rem;
             text-align: left;
             font-weight: 600;
-            color: var(--text-primary);
+            color: white;
             border-bottom: 2px solid var(--border-color);
         }
 
@@ -417,16 +458,20 @@
             color: var(--text-body);
         }
 
-        tr:hover {
+        tbody tr {
+            transition: background 0.2s ease;
+        }
+
+        tbody tr:hover {
             background: var(--bg-secondary);
         }
 
         tr.best-model {
-            background: rgba(8, 145, 178, 0.05);
+            background: rgba(37, 99, 235, 0.08);
         }
 
         .badge {
-            background: var(--primary-teal);
+            background: var(--accent-orange);
             color: white;
             padding: 0.25rem 0.75rem;
             border-radius: 12px;
@@ -482,21 +527,26 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>{{ header_icon }}{{ title }}</h1>
-            <p>Antibody Clinical Trial Success Prediction</p>
+            <h1>{{ title }}</h1>
+            <p>{{ config.project.name }}</p>
+            <p class="project-info">{{ config.project.code }}</p>
         </div>
 
         <div class="nav-bar">
-            <a href="index.html" class="nav-link">Home</a>
-            <a href="eda_raw_data.html" class="nav-link {{ raw_active }}">Raw Data EDA</a>
-            <a href="eda_features.html" class="nav-link {{ features_active }}">Feature EDA</a>
+            {% for nav_item in config.navigation %}
+            <a href="{{ nav_item.url }}" class="nav-link {% if nav_item.id == active_page %}active{% endif %}">
+                <span class="nav-icon">{{ nav_item.icon }}</span> {{ nav_item.label }}
+            </a>
+            {% endfor %}
         </div>
 
         <div class="content">
             <div class="metadata">
                 <p><strong>Generated:</strong> {{ metadata.timestamp }}</p>
                 <p><strong>Data Source:</strong> {{ metadata.data_source }}</p>
-                <p><strong>Workflow Run:</strong> <a href="{{ metadata.workflow_url }}" target="_blank">View on GitHub Actions</a></p>
+                {% if metadata.workflow_url and metadata.workflow_url != '#' %}
+                <p><strong>Workflow Run:</strong> <a href="{{ metadata.workflow_url }}" target="_blank">{{ config.defaults.workflow_url_text }}</a></p>
+                {% endif %}
             </div>
 
             {{ summary_cards }}
@@ -507,8 +557,8 @@
         </div>
 
         <div class="footer">
-            <p>Generated by ML Pipeline • Duke AIPI 520 • © 2025</p>
-            <p style="margin-top: 10px; font-size: 0.9em;">Powered by Plotly & Python</p>
+            <p>{{ config.project.footer_text }} • © {{ config.project.copyright_year }}</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">{{ config.project.footer_subtext }}</p>
         </div>
     </div>
 </body>

@@ -37,6 +37,7 @@ ENV/
 
 # Results that can be regenerated
 reports/
+docs/
 
 # System files
 .DS_Store
