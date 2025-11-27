@@ -2,28 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0; url=model_dashboard.html">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Antibody Trial Predictor - Dashboard Portal</title>
+    <title>Redirecting to Antibody Trial Predictor Dashboard...</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary-blue: #005587;
-            --primary-teal: #339898;
-            --primary-cyan: #1D6363;
-            --accent-orange: #C84E00;
-            --accent-emerald: #A1B70D;
-            --bg-primary: #f8fafc;
-            --bg-secondary: #e2e8f0;
-            --bg-card: #ffffff;
-            --text-primary: #1e293b;
-            --text-body: #334155;
-            --text-secondary: #64748b;
-            --text-muted: #94a3b8;
-            --border-color: rgba(37, 99, 235, 0.12);
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -32,280 +17,79 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             min-height: 100vh;
-            background-image:
-                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.02) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(8, 145, 178, 0.015) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(249, 115, 22, 0.01) 0px, transparent 50%),
-                radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.01) 0px, transparent 50%);
-            background-attachment: fixed;
+            padding: 2rem;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 3rem 2rem;
-        }
-
-        header {
+        .redirect-container {
             text-align: center;
-            margin-bottom: 4rem;
-            padding: 2rem 0;
+            background: white;
+            padding: 3rem 4rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+                        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(37, 99, 235, 0.12);
         }
 
         h1 {
-            font-size: 3rem;
-            font-weight: 800;
-            color: var(--primary-blue);
-            margin-bottom: 1rem;
-            letter-spacing: -0.02em;
-        }
-
-        .subtitle {
-            font-size: 1.25rem;
-            color: var(--text-secondary);
-            font-weight: 400;
-        }
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 2rem;
-            margin-top: 3rem;
-            align-items: stretch;
-        }
-
-        .dashboard-card {
-            background: var(--bg-card);
-            border-radius: 12px;
-            padding: 2.5rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08),
-                        0 1px 2px rgba(0, 0, 0, 0.06);
-            transition: all 0.2s ease;
-            border: 1px solid var(--border-color);
-            text-decoration: none;
-            color: inherit;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .dashboard-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--card-color), var(--card-color-alt));
-            opacity: 0;
-            transition: opacity 0.2s ease;
-        }
-
-        .dashboard-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
-                        0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border-color: rgba(0, 0, 0, 0.1);
-        }
-
-        .dashboard-card:hover::before {
-            opacity: 1;
-        }
-
-        .dashboard-card.model {
-            --card-color: #2563eb;
-            --card-color-alt: #0891b2;
-        }
-
-        .dashboard-card.eda-raw {
-            --card-color: #f97316;
-            --card-color-alt: #ea580c;
-        }
-
-        .dashboard-card.eda-features {
-            --card-color: #10b981;
-            --card-color-alt: #059669;
-        }
-
-        .card-title {
             font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 0.75rem;
+            font-weight: 600;
+            color: #005587;
+            margin-bottom: 1rem;
         }
 
-        .card-description {
-            color: var(--text-secondary);
-            font-size: 1rem;
-            line-height: 1.7;
+        p {
+            color: #64748b;
             margin-bottom: 1.5rem;
-            flex-grow: 1;
         }
 
-        .card-stats {
-            display: flex;
-            gap: 1.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border-color);
+        .spinner {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto;
+            border: 3px solid #e2e8f0;
+            border-top-color: #339898;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
         }
 
-        .stat {
-            flex: 1;
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
-        .stat-label {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
+        a {
+            color: #339898;
+            text-decoration: none;
             font-weight: 600;
-            margin-bottom: 0.25rem;
         }
 
-        .stat-value {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--card-color);
-        }
-
-        .cta-button {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
-            background: var(--card-color);
-            color: white;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            transition: all 0.15s ease;
-            margin-top: 1rem;
-        }
-
-        .cta-button:hover {
-            background: var(--card-color-alt);
-            transform: translateX(2px);
-        }
-
-        .arrow {
-            transition: transform 0.15s ease;
-        }
-
-        .dashboard-card:hover .arrow {
-            transform: translateX(2px);
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 4rem;
-            padding: 2rem 0;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-
-        @media (max-width: 1024px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 2rem;
-            }
-
-            .subtitle {
-                font-size: 1rem;
-            }
+        a:hover {
+            color: #005587;
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Antibody Trial Predictor</h1>
-            <p class="subtitle">Interactive Dashboards & Analytics Portal</p>
-        </header>
-
-        <div class="dashboard-grid">
-            <!-- Model Dashboard Card -->
-            <a href="model_dashboard.html" class="dashboard-card model">
-                <h2 class="card-title">Model Dashboard</h2>
-                <p class="card-description">
-                    Comprehensive machine learning model comparison with performance metrics,
-                    feature importance analysis, and interactive visualizations.
-                </p>
-                <div class="card-stats">
-                    <div class="stat">
-                        <div class="stat-label">Models</div>
-                        <div class="stat-value">5</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-label">Metrics</div>
-                        <div class="stat-value">6+</div>
-                    </div>
-                </div>
-                <span class="cta-button">
-                    View Dashboard
-                    <span class="arrow">→</span>
-                </span>
-            </a>
-
-            <!-- EDA Raw Data Card -->
-            <a href="eda_raw_data.html" class="dashboard-card eda-raw">
-                <h2 class="card-title">Raw Data EDA</h2>
-                <p class="card-description">
-                    Exploratory data analysis of clinical trials including status distribution,
-                    phase analysis, antibody types, and temporal trends.
-                </p>
-                <div class="card-stats">
-                    <div class="stat">
-                        <div class="stat-label">Data</div>
-                        <div class="stat-value">Raw</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-label">Charts</div>
-                        <div class="stat-value">12+</div>
-                    </div>
-                </div>
-                <span class="cta-button">
-                    Explore Data
-                    <span class="arrow">→</span>
-                </span>
-            </a>
-
-            <!-- EDA Features Card -->
-            <a href="eda_features.html" class="dashboard-card eda-features">
-                <h2 class="card-title">Engineered Features EDA</h2>
-                <p class="card-description">
-                    Analysis of engineered features used in ML models including feature distributions,
-                    correlations, and statistical insights.
-                </p>
-                <div class="card-stats">
-                    <div class="stat">
-                        <div class="stat-label">Data</div>
-                        <div class="stat-value">Features</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-label">Analysis</div>
-                        <div class="stat-value">Deep</div>
-                    </div>
-                </div>
-                <span class="cta-button">
-                    Analyze Features
-                    <span class="arrow">→</span>
-                </span>
-            </a>
-        </div>
-
-        <footer>
-            <p>Antibody Trial Predictor - AIPI 520 Project</p>
-        </footer>
+    <div class="redirect-container">
+        <h1>🤖 Antibody Trial Predictor</h1>
+        <p>Redirecting to dashboard...</p>
+        <div class="spinner"></div>
+        <p style="margin-top: 2rem; font-size: 0.9rem;">
+            If you are not redirected automatically,
+            <a href="model_dashboard.html">click here</a>.
+        </p>
     </div>
+
+    <script>
+        // Fallback redirect for browsers that don't support meta refresh
+        setTimeout(() => {
+            window.location.href = 'model_dashboard.html';
+        }, 100);
+    </script>
 </body>
 </html>
