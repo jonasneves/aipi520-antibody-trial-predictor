@@ -37,10 +37,10 @@
             line-height: 1.6;
             min-height: 100vh;
             background-image:
-                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.05) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(8, 145, 178, 0.04) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(249, 115, 22, 0.03) 0px, transparent 50%),
-                radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.03) 0px, transparent 50%);
+                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.02) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(8, 145, 178, 0.015) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(249, 115, 22, 0.01) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.01) 0px, transparent 50%);
             background-attachment: fixed;
         }
 
@@ -80,12 +80,12 @@
 
         .dashboard-card {
             background: var(--bg-card);
-            border-radius: 16px;
+            border-radius: 12px;
             padding: 2.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05),
-                        0 2px 4px -1px rgba(0, 0, 0, 0.03);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 2px solid transparent;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08),
+                        0 1px 2px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease;
+            border: 1px solid var(--border-color);
             text-decoration: none;
             color: inherit;
             display: flex;
@@ -100,17 +100,17 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
+            height: 3px;
             background: linear-gradient(90deg, var(--card-color), var(--card-color-alt));
             opacity: 0;
-            transition: opacity 0.3s;
+            transition: opacity 0.2s ease;
         }
 
         .dashboard-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08),
-                        0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            border-color: var(--card-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+                        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-color: rgba(0, 0, 0, 0.1);
         }
 
         .dashboard-card:hover::before {
@@ -180,24 +180,24 @@
             padding: 0.75rem 1.5rem;
             background: var(--card-color);
             color: white;
-            border-radius: 8px;
+            border-radius: 6px;
             font-weight: 600;
             font-size: 0.95rem;
-            transition: all 0.2s;
+            transition: all 0.15s ease;
             margin-top: 1rem;
         }
 
         .cta-button:hover {
             background: var(--card-color-alt);
-            transform: translateX(4px);
+            transform: translateX(2px);
         }
 
         .arrow {
-            transition: transform 0.2s;
+            transition: transform 0.15s ease;
         }
 
         .dashboard-card:hover .arrow {
-            transform: translateX(4px);
+            transform: translateX(2px);
         }
 
         footer {
