@@ -9,19 +9,44 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-blue: #005587;
-            --primary-teal: #339898;
-            --primary-cyan: #1D6363;
-            --accent-orange: #C84E00;
-            --accent-emerald: #A1B70D;
-            --bg-primary: #f8fafc;
-            --bg-secondary: #e2e8f0;
+            --bg-primary: #ffffff;
+            --bg-secondary: #FAFAFA;
+            --bg-tertiary: #F3F4F6;
             --bg-card: #ffffff;
-            --text-primary: #1e293b;
-            --text-body: #334155;
-            --text-secondary: #64748b;
-            --text-muted: #94a3b8;
-            --border-color: rgba(37, 99, 235, 0.12);
+            --text-primary: #111827;
+            --text-secondary: #6B7280;
+            --text-tertiary: #9CA3AF;
+            --border-color: #E5E7EB;
+            --accent-color: #1e3a5f;
+            --accent-hover: #2c4f7c;
+            --success-color: #059669;
+            --warning-color: #D97706;
+            --danger-color: #DC2626;
+
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, "Liberation Mono", monospace;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #12161e;
+            --bg-tertiary: #1a1f2b;
+            --bg-card: #12161e;
+            --text-primary: #e4e7eb;
+            --text-secondary: #9ca3af;
+            --text-tertiary: #6b7280;
+            --border-color: #1f2937;
+            --accent-color: #3b82f6;
+            --accent-hover: #60a5fa;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
         }
 
         * {
@@ -31,17 +56,14 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
+            font-family: var(--font-sans);
+            background: var(--bg-secondary);
             color: var(--text-primary);
             line-height: 1.6;
             min-height: 100vh;
-            background-image:
-                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.02) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(8, 145, 178, 0.015) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(249, 115, 22, 0.01) 0px, transparent 50%),
-                radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.01) 0px, transparent 50%);
-            background-attachment: fixed;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         .container {
@@ -49,10 +71,9 @@
             margin: 0 auto;
             margin-top: 2rem;
             margin-bottom: 2rem;
-            background: white;
+            background: var(--bg-card);
             border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08),
-                        0 1px 2px rgba(0, 0, 0, 0.06);
+            box-shadow: var(--shadow-sm);
             overflow: hidden;
             border: 1px solid var(--border-color);
         }
@@ -62,39 +83,33 @@
             padding: 3rem 2rem;
             position: relative;
             overflow: hidden;
-            background: linear-gradient(135deg,
-                rgba(37, 99, 235, 0.06) 0%,
-                rgba(8, 145, 178, 0.05) 50%,
-                rgba(6, 182, 212, 0.04) 100%);
+            background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%);
             border-bottom: 1px solid var(--border-color);
         }
 
         .header h1 {
             font-size: 2.5em;
-            font-weight: 800;
+            font-weight: 700;
             margin-bottom: 10px;
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-teal));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: white;
             letter-spacing: -0.02em;
         }
 
         .header p {
             font-size: 1.1em;
-            color: var(--text-secondary);
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .header .subtitle {
             font-size: 1.1em;
-            color: var(--text-secondary);
+            color: rgba(255, 255, 255, 0.9);
             margin-bottom: 0.5rem;
         }
 
         .header .meta {
             font-size: 0.95rem;
-            color: var(--text-muted);
-            font-family: 'JetBrains Mono', monospace;
+            color: rgba(255, 255, 255, 0.75);
+            font-family: var(--font-mono);
         }
 
         .metrics-grid {
@@ -111,15 +126,13 @@
             padding: 2rem;
             position: relative;
             overflow: hidden;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08),
-                        0 1px 2px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow-sm);
         }
 
         .metric-card:hover {
+            box-shadow: var(--shadow-md);
             transform: translateY(-2px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
-                        0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
 
         .metric-card::before {
@@ -129,12 +142,12 @@
             left: 0;
             right: 0;
             height: 3px;
-            background: linear-gradient(90deg, var(--accent-color), transparent);
+            background: var(--accent-color);
         }
 
-        .metric-card.best::before { --accent-color: var(--primary-blue); }
-        .metric-card.roc::before { --accent-color: var(--primary-teal); }
-        .metric-card.f1::before { --accent-color: var(--accent-orange); }
+        .metric-card.best::before { background: var(--accent-color); }
+        .metric-card.roc::before { background: var(--success-color); }
+        .metric-card.f1::before { background: var(--warning-color); }
 
         .metric-label {
             font-size: 0.875rem;
@@ -150,11 +163,12 @@
             font-weight: 700;
             line-height: 1;
             margin-bottom: 0.25rem;
+            color: var(--text-primary);
         }
 
-        .metric-card.best .metric-value { color: var(--primary-blue); }
-        .metric-card.roc .metric-value { color: var(--primary-teal); }
-        .metric-card.f1 .metric-value { color: var(--accent-orange); }
+        .metric-card.best .metric-value { color: var(--accent-color); }
+        .metric-card.roc .metric-value { color: var(--success-color); }
+        .metric-card.f1 .metric-value { color: var(--warning-color); }
 
         .section {
             margin-bottom: 3rem;
@@ -182,7 +196,12 @@
             border-radius: 12px;
             padding: 2rem;
             margin-bottom: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-md);
         }
 
         .info-grid {
@@ -195,11 +214,11 @@
             font-size: 1.1rem;
             font-weight: 600;
             margin-bottom: 0.75rem;
-            color: var(--primary-teal);
+            color: var(--accent-color);
         }
 
         .info-block p, .info-block ul {
-            color: var(--text-body);
+            color: var(--text-secondary);
             font-size: 0.95rem;
             line-height: 1.7;
         }
@@ -219,12 +238,12 @@
             content: '▸';
             position: absolute;
             left: 0;
-            color: var(--primary-teal);
+            color: var(--accent-color);
         }
 
         pre {
-            background: rgba(8, 145, 178, 0.08);
-            border: 1px solid rgba(8, 145, 178, 0.25);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 1rem 1.25rem;
             overflow-x: auto;
@@ -232,9 +251,9 @@
         }
 
         pre code {
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-family: var(--font-mono);
             font-size: 0.875rem;
-            color: var(--primary-cyan);
+            color: var(--text-primary);
             background: transparent;
             border: none;
             padding: 0;
@@ -254,7 +273,7 @@
         }
 
         thead {
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-teal));
+            background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
         }
 
         thead th {
@@ -271,11 +290,11 @@
         }
 
         tbody tr:hover {
-            background: rgba(8, 145, 178, 0.06);
+            background: var(--bg-tertiary);
         }
 
         tbody tr.best-model {
-            background: rgba(37, 99, 235, 0.08);
+            background: rgba(30, 58, 95, 0.08);
         }
 
         tbody td {
@@ -290,7 +309,7 @@
             font-size: 0.75rem;
             font-weight: 600;
             margin-left: 0.5rem;
-            background: var(--accent-orange);
+            background: var(--warning-color);
             color: white;
         }
 
@@ -302,9 +321,9 @@
         }
 
         .pill {
-            background: rgba(8, 145, 178, 0.15);
-            border: 1px solid rgba(6, 182, 212, 0.4);
-            color: var(--primary-cyan);
+            background: rgba(30, 58, 95, 0.1);
+            border: 1px solid var(--border-color);
+            color: var(--accent-color);
             padding: 0.5rem 1rem;
             border-radius: 20px;
             font-size: 0.875rem;
@@ -315,22 +334,21 @@
             border: 1px solid var(--border-color);
             border-radius: 8px;
             background: var(--bg-card);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            box-shadow: var(--shadow-sm);
             overflow: hidden;
             transition: all 0.2s ease;
             margin-top: 1.5rem;
         }
 
         details[open] {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
-                        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: var(--shadow-md);
         }
 
         summary {
             cursor: pointer;
             font-weight: 600;
             font-size: 0.95rem;
-            color: var(--text-body);
+            color: var(--text-secondary);
             user-select: none;
             padding: 1rem 1.5rem;
             transition: all 0.15s ease;
@@ -338,7 +356,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: linear-gradient(135deg, rgba(37, 99, 235, 0.03) 0%, rgba(8, 145, 178, 0.03) 100%);
+            background: var(--bg-secondary);
             border-bottom: 1px solid transparent;
         }
 
@@ -349,13 +367,13 @@
         summary::after {
             content: '▼';
             font-size: 0.7rem;
-            color: var(--primary-teal);
+            color: var(--accent-color);
             transition: transform 0.2s ease;
             opacity: 0.7;
         }
 
         details[open] summary {
-            background: linear-gradient(135deg, rgba(37, 99, 235, 0.04) 0%, rgba(8, 145, 178, 0.04) 100%);
+            background: var(--bg-tertiary);
             border-bottom: 1px solid var(--border-color);
         }
 
@@ -364,12 +382,12 @@
         }
 
         summary:hover {
-            background: linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(8, 145, 178, 0.05) 100%);
+            background: var(--bg-tertiary);
         }
 
         summary:hover::after {
             opacity: 1;
-            color: var(--primary-blue);
+            color: var(--accent-color);
         }
 
         .features-list {
@@ -380,25 +398,25 @@
         }
 
         .feature-item {
-            color: var(--text-body);
+            color: var(--text-secondary);
             font-size: 0.9rem;
             line-height: 1.6;
             padding: 1rem 1.25rem;
-            background: white;
+            background: var(--bg-card);
             border-radius: 6px;
             border: 1px solid var(--border-color);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+            box-shadow: var(--shadow-sm);
             transition: all 0.15s ease;
         }
 
         .feature-item:hover {
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-            border-color: var(--primary-teal);
+            box-shadow: var(--shadow-md);
+            border-color: var(--accent-color);
             transform: translateY(-1px);
         }
 
         .feature-item strong {
-            color: var(--primary-cyan);
+            color: var(--accent-color);
             display: block;
             margin-bottom: 0.3rem;
             font-size: 0.95rem;
@@ -410,11 +428,11 @@
             border-radius: 12px;
             padding: 2rem;
             margin-bottom: 2rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            box-shadow: var(--shadow-sm);
         }
 
         .citation {
-            color: var(--primary-blue);
+            color: var(--accent-color);
             text-decoration: none;
             font-size: 0.75em;
             vertical-align: super;
@@ -423,7 +441,7 @@
         }
 
         .citation:hover {
-            color: var(--primary-teal);
+            color: var(--accent-hover);
             text-decoration: underline;
         }
 
@@ -441,17 +459,17 @@
             width: 16px;
             height: 16px;
             border-radius: 50%;
-            background: var(--primary-teal);
+            background: var(--accent-color);
             color: white;
             font-size: 11px;
             font-weight: 600;
-            font-family: 'Inter', sans-serif;
+            font-family: var(--font-sans);
             vertical-align: middle;
             transition: all 0.2s ease;
         }
 
         .info-icon:hover {
-            background: var(--primary-blue);
+            background: var(--accent-hover);
             transform: scale(1.05);
         }
 
@@ -464,12 +482,12 @@
             left: 50%;
             transform: translateX(-50%);
             width: 320px;
-            background: white;
-            color: var(--text-body);
+            background: var(--bg-card);
+            color: var(--text-secondary);
             padding: 1rem;
             border-radius: 8px;
             border: 1px solid var(--border-color);
-            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.2);
+            box-shadow: var(--shadow-md);
             font-size: 0.85rem;
             line-height: 1.6;
             transition: opacity 0.3s ease, visibility 0.3s ease;
@@ -483,7 +501,7 @@
             left: 50%;
             transform: translateX(-50%);
             border: 6px solid transparent;
-            border-top-color: white;
+            border-top-color: var(--bg-card);
         }
 
         .info-tooltip:hover .tooltip-content {
@@ -512,7 +530,7 @@
         .references h3 {
             font-size: 1.5rem;
             margin-bottom: 1.5rem;
-            color: var(--primary-cyan);
+            color: var(--accent-color);
         }
 
         .references ol {
@@ -526,7 +544,7 @@
             padding: 0.75rem 0;
             padding-left: 2.5rem;
             position: relative;
-            color: var(--text-body);
+            color: var(--text-secondary);
             line-height: 1.7;
             border-bottom: 1px solid var(--border-color);
         }
@@ -540,16 +558,17 @@
             position: absolute;
             left: 0;
             font-weight: 600;
-            color: var(--primary-blue);
+            color: var(--accent-color);
         }
 
         .references a {
-            color: var(--primary-teal);
+            color: var(--accent-color);
             text-decoration: none;
             word-break: break-word;
         }
 
         .references a:hover {
+            color: var(--accent-hover);
             text-decoration: underline;
         }
 
@@ -559,13 +578,13 @@
             border-radius: 8px;
             margin: 2rem 0;
             border: 1px solid var(--border-color);
-            border-left: 3px solid var(--primary-teal);
+            border-left: 3px solid var(--accent-color);
         }
 
         .metadata p {
             margin: 0.5rem 0;
             font-size: 0.9em;
-            color: var(--text-body);
+            color: var(--text-secondary);
         }
 
         .metadata strong {
@@ -574,13 +593,13 @@
         }
 
         .metadata a {
-            color: var(--primary-teal);
+            color: var(--accent-color);
             text-decoration: none;
             font-weight: 600;
         }
 
         .metadata a:hover {
-            color: var(--primary-blue);
+            color: var(--accent-hover);
             text-decoration: underline;
         }
 
@@ -589,18 +608,18 @@
             padding: 2rem;
             background: var(--bg-card);
             border-top: 1px solid var(--border-color);
-            color: var(--text-muted);
+            color: var(--text-tertiary);
         }
 
         .footer a {
-            color: var(--primary-blue);
+            color: var(--accent-color);
             text-decoration: none;
             font-weight: 600;
             transition: color 0.2s ease;
         }
 
         .footer a:hover {
-            color: var(--primary-teal);
+            color: var(--accent-hover);
         }
 
         .footer p {
@@ -609,7 +628,7 @@
 
         .nav-bar {
             background: var(--bg-card);
-            padding: 0 2rem;
+            padding: 1rem 2.5rem;
             display: flex;
             gap: 1rem;
             flex-wrap: wrap;
@@ -621,27 +640,27 @@
         }
 
         .nav-link {
-            color: var(--text-body);
+            color: var(--text-primary);
             text-decoration: none;
-            padding: 1rem 1.5rem;
-            border-radius: 0;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
             transition: all 0.15s ease;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
             font-weight: 500;
-            font-size: 0.95rem;
-            border-bottom: 3px solid transparent;
-            position: relative;
+            font-size: 0.9rem;
         }
 
         .nav-link:hover {
-            background: rgba(8, 145, 178, 0.06);
-            border-bottom-color: var(--primary-teal);
+            background: var(--bg-tertiary);
+            border-color: var(--accent-color);
+            transform: translateY(-1px);
         }
 
         .nav-link.active {
-            background: rgba(8, 145, 178, 0.08);
-            color: var(--primary-teal);
-            border-bottom-color: var(--primary-teal);
-            font-weight: 600;
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
         }
 
         @media (max-width: 768px) {
@@ -688,9 +707,9 @@
 
         <div class="content-wrapper">
             <div class="metadata">
-                <p><strong>Generated:</strong> 2025-11-27 17:09:36 UTC</p>
+                <p><strong>Generated:</strong> 2025-11-27 17:17:35 UTC</p>
                 <p><strong>Data Source:</strong> ClinicalTrials.gov API</p>
-                <p><strong>Workflow Run:</strong> <a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19743506804" target="_blank">View on GitHub Actions</a></p>
+                <p><strong>Workflow Run:</strong> <a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19743707072" target="_blank">View on GitHub Actions</a></p>
             </div>
 
             <div class="metrics-grid animate-in">
@@ -851,7 +870,7 @@
             <td>0.9169</td>
             <td><strong>0.7808</strong></td>
             <td>0.7913 ± 0.0113</td>
-            <td>0.37s</td>
+            <td>0.27s</td>
         </tr>
         
 
@@ -863,7 +882,7 @@
             <td>0.8582</td>
             <td><strong>0.7768</strong></td>
             <td>0.7686 ± 0.0197</td>
-            <td>0.82s</td>
+            <td>0.88s</td>
         </tr>
         
 
