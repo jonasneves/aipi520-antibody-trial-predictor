@@ -111,9 +111,24 @@
         }
 
         .nav-link.active {
-            background: var(--primary-teal);
+            background: var(--primary-blue);
             color: white;
-            border-color: var(--primary-teal);
+            border-color: var(--primary-blue);
+        }
+
+        .nav-icon {
+            background: var(--primary-blue);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-right: 0.25rem;
+        }
+
+        .nav-link.active .nav-icon {
+            background: white;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .content {
@@ -121,18 +136,17 @@
         }
 
         .metadata {
-            background: var(--bg-card);
-            padding: 1.5rem;
+            background: #fafbfc;
+            border: 1px solid rgba(37, 99, 235, 0.08);
+            padding: 12px 16px;
             border-radius: 8px;
-            margin: 2rem 0;
-            border: 1px solid var(--border-color);
-            border-left: 3px solid var(--primary-teal);
+            margin: 16px 0;
         }
 
         .metadata p {
-            margin: 0.5rem 0;
-            font-size: 0.9em;
-            color: var(--text-body);
+            margin: 4px 0;
+            color: var(--text-secondary);
+            font-size: 0.85em;
         }
 
         .metadata strong {
@@ -162,64 +176,58 @@
 
         .summary-stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 1rem;
-            margin: 2rem auto;
-            max-width: 800px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
         }
 
         .stat-card {
             background: var(--bg-card);
-            color: var(--text-primary);
-            padding: 1.5rem 1rem;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08),
-                        0 1px 2px rgba(0, 0, 0, 0.06);
             border: 1px solid var(--border-color);
-            transition: all 0.2s ease;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
             position: relative;
             overflow: hidden;
         }
 
         .stat-card::before {
-            content: '';
+            content: "";
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            height: 3px;
+            height: 4px;
             background: linear-gradient(90deg, var(--primary-teal), var(--primary-blue));
         }
 
         .stat-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
-                        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.15);
         }
 
         .stat-value {
-            font-size: 2em;
+            font-size: 2.5em;
             font-weight: 700;
-            margin-bottom: 0.5rem;
-            color: var(--primary-teal);
+            color: var(--primary-blue);
         }
 
         .stat-label {
-            font-size: 0.75em;
+            font-size: 0.875em;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 1px;
             font-weight: 600;
         }
 
         .chart {
-            margin: 2.5rem 0;
+            margin: 30px 0;
             background: var(--bg-card);
-            padding: 1.5rem;
-            border-radius: 8px;
             border: 1px solid var(--border-color);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
         }
 
         .insights-box {
@@ -482,39 +490,39 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔬 Feature Engineering Analysis</h1>
+            <h1>Feature Engineering Analysis</h1>
             <p>Antibody Clinical Trial Success Prediction</p>
         </div>
 
         <div class="nav-bar">
-            <a href="index.html" class="nav-link">Home</a>
-            <a href="eda_raw_data.html" class="nav-link ">Raw Data EDA</a>
-            <a href="eda_features.html" class="nav-link active">Feature EDA</a>
+            <a href="index.html" class="nav-link "><span class="nav-icon">⭐</span> Overview</a>
+            <a href="eda_raw_data.html" class="nav-link "><span class="nav-icon">🔍</span> Raw Data EDA</a>
+            <a href="eda_features.html" class="nav-link active"><span class="nav-icon">🔬</span> Feature EDA</a>
         </div>
 
         <div class="content">
             <div class="metadata">
-                <p><strong>Generated:</strong> 2025-11-27 18:06:47 UTC</p>
+                <p><strong>Generated:</strong> 2025-11-27 19:58:28 UTC</p>
                 <p><strong>Data Source:</strong> ClinicalTrials.gov Bulk XML (~500K trials)</p>
-                <p><strong>Workflow Run:</strong> <a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19744698152" target="_blank">View on GitHub Actions</a></p>
+                <p><strong>Workflow Run:</strong> <a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19746675389" target="_blank">View on GitHub Actions</a></p>
             </div>
 
             <div class="summary-stats">
 <div class="stat-card">
-    <div class="stat-value">6,224</div>
     <div class="stat-label">Samples</div>
+    <div class="stat-value">6,224</div>
 </div>
 <div class="stat-card">
-    <div class="stat-value">32</div>
     <div class="stat-label">Numeric Features</div>
-</div>
-<div class="stat-card">
-    <div class="stat-value">0</div>
-    <div class="stat-label">Missing Values</div>
-</div>
-<div class="stat-card">
     <div class="stat-value">32</div>
+</div>
+<div class="stat-card">
+    <div class="stat-label">Missing Values</div>
+    <div class="stat-value">0</div>
+</div>
+<div class="stat-card">
     <div class="stat-label">Total Columns</div>
+    <div class="stat-value">32</div>
 </div>
 </div>
 
