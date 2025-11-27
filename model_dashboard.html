@@ -637,11 +637,10 @@
                     </div>
                     <div class="info-block">
                         <h3>Data Source</h3>
-                        <p><strong>ClinicalTrials.gov API v2</strong></p>
-                        <p>Completed Phase 2/3 antibody trials</p>
-                        <pre><code>AREA[OverallStatus]COMPLETED AND (AREA[Phase]PHASE2 OR AREA[Phase]PHASE3)</code></pre>
-                    </div>
-                    <div class="info-block">
+                        <p><strong>ClinicalTrials.gov Bulk XML Download</strong></p>
+                        <p>Streaming parse from S3-hosted bulk XML archive</p>
+                        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">Phase 2/3 interventional antibody trials (completed/terminated/withdrawn status)</p>
+                    </div>                    <div class="info-block">
                         <h3>Success Labeling Strategy</h3>
                         <p><strong>Refined Binary Classification:</strong></p>
                         <ul>
@@ -676,9 +675,9 @@
                     <div class="info-block">
                         <h3>Data Quality</h3>
                         <ul>
-                            <li><strong>Source:</strong> ClinicalTrials.gov official API</li>
+                            <li><strong>Source:</strong> ClinicalTrials.gov Bulk XML (S3)</li>
                             <li><strong>Validation:</strong> Stratified train/test split</li>
-                            <li><strong>Features:</strong> 20 domain-specific engineered features</li>
+                            <li><strong>Features:</strong> 85 domain-specific engineered features</li>
                         </ul>
                     </div>
                 </div>
@@ -687,19 +686,21 @@
 
             <div class="card">
                 <h3 style="margin-bottom: 0.75rem; color: var(--primary-cyan); font-size: 1.25rem; font-weight: 600;">
-                    Feature Engineering - 20 Features
+                    Feature Engineering - 85 Features
                 </h3>
                 <p style="color: var(--text-body); margin-bottom: 1rem;">Comprehensive feature set extracted from clinical trial metadata:</p>
                 <div class="feature-pills">
-                    <span class="pill">Trial Duration & Timeline</span>
-                    <span class="pill">Enrollment Size</span>
-                    <span class="pill">Study Phase (2 vs 3)</span>
-                    <span class="pill">Antibody Characteristics</span>
-                    <span class="pill">Study Design Type</span>
-                    <span class="pill">Sponsor Information</span>
-                    <span class="pill">Condition Categories</span>
-                    <span class="pill">Text Features (TF-IDF)</span>
+                    <span class="pill">Antibody Type & Mechanism (12 features)</span>
+                    <span class="pill">Trial Design & Enrollment (7 features)</span>
+                    <span class="pill">Disease Categories (8 features)</span>
+                    <span class="pill">Sponsor Characteristics (4 features)</span>
+                    <span class="pill">Temporal Features (3 features)</span>
+                    <span class="pill">Text Features - TF-IDF (50 features)</span>
+                    <span class="pill">Trial Metadata (1 feature)</span>
                 </div>
+                <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-secondary);">
+                    <strong>Antibody-specific features:</strong> Type classification (murine/chimeric/humanized/fully_human), target mechanisms (checkpoint inhibitors, growth factors, cytokines, CD markers), biomarker selection, combination therapy indicators
+                </p>
             </div>
         </section>
     
@@ -733,7 +734,7 @@
             <td>0.9180</td>
             <td><strong>0.8406</strong></td>
             <td>0.7761 ± 0.0023</td>
-            <td>0.38s</td>
+            <td>0.42s</td>
         </tr>
         
 
@@ -757,7 +758,7 @@
             <td>0.9337</td>
             <td><strong>0.8308</strong></td>
             <td>0.7696 ± 0.0115</td>
-            <td>2.55s</td>
+            <td>2.48s</td>
         </tr>
         
 
@@ -769,7 +770,7 @@
             <td>0.8616</td>
             <td><strong>0.8211</strong></td>
             <td>0.7679 ± 0.0117</td>
-            <td>1.33s</td>
+            <td>1.13s</td>
         </tr>
         
 
@@ -781,7 +782,7 @@
             <td>0.8921</td>
             <td><strong>0.7228</strong></td>
             <td>0.6705 ± 0.0168</td>
-            <td>0.05s</td>
+            <td>0.06s</td>
         </tr>
         
                     </tbody>
@@ -858,8 +859,8 @@
 
         <footer class="footer">
             <p>ML Pipeline Dashboard · Generated from Pipeline Results</p>
-            <p class="meta">Generated: 2025-11-27 02:04:04 UTC</p>
-<p class="meta"><a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19722808907" target="_blank">View Workflow Run →</a></p>
+            <p class="meta">Generated: 2025-11-27 02:18:27 UTC</p>
+<p class="meta"><a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19723045370" target="_blank">View Workflow Run →</a></p>
             <p style="margin-top: 1rem; font-size: 0.85rem;">
                 AIPI 520 Project 2 · 2025
             </p>
