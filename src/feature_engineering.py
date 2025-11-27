@@ -3,6 +3,18 @@ Clinical Trial Feature Engineering Module
 
 This module extracts and engineers features from clinical trial data
 for predictive modeling, with specialized features for antibody trials.
+
+Features Extracted (32 total):
+- Antibody-specific: 12 features (type, mechanism, biomarkers)
+- Traditional trial: 20 features (design, enrollment, disease, sponsor)
+- Temporal: 4 features (including has_start_date flag for missing dates)
+
+Methodology:
+- Post-2024 trials filtered
+- TF-IDF text features excluded by default
+- Temporal features set to 0 for missing dates (45% of dataset)
+- Labels stored separately
+- Designed for time-based train/test splits
 """
 
 import pandas as pd
@@ -12,7 +24,7 @@ from datetime import datetime
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from data_collection import analyze_antibody
+from antibody_utils import analyze_antibody
 
 
 class TrialFeatureEngineer:
@@ -26,13 +38,14 @@ class TrialFeatureEngineer:
         self.tfidf_vectorizers = {}
         self.sponsor_counts = {}  # Store sponsor counts from training data
 
-    def extract_all_features(self, df: pd.DataFrame, fit: bool = True) -> pd.DataFrame:
+    def extract_all_features(self, df: pd.DataFrame, fit: bool = True, include_text_features: bool = True) -> pd.DataFrame:
         """
         Extract all features from the dataset
 
         Args:
             df: Input DataFrame with clinical trial data
             fit: Whether to fit transformers (True for training, False for test)
+            include_text_features: Whether to include TF-IDF text features (default True)
 
         Returns:
             DataFrame with engineered features
@@ -51,7 +64,7 @@ class TrialFeatureEngineer:
         df_features = self._extract_antibody_features(df_features)
         df_features = self._extract_phase_features(df_features)
 
-        if 'brief_title' in df_features.columns:
+        if include_text_features and 'brief_title' in df_features.columns:
             df_features = self._extract_text_features(df_features, fit)
 
         print(f"Feature extraction complete. Total features: {len(df_features.columns)}")
@@ -81,13 +94,29 @@ class TrialFeatureEngineer:
             df['start_date_parsed'] = pd.to_datetime(df['start_date'], errors='coerce')
 
         if 'start_date_parsed' in df.columns:
-            REFERENCE_YEAR = 2024
+            # Add binary feature to flag trials with valid start dates
+            df['has_start_date'] = df['start_date_parsed'].notna().astype(int)
 
+            # Use dynamic reference year based on the latest trial start date
+            # This prevents temporal leakage from future trials
+            max_start_year = df['start_date_parsed'].dt.year.max()
+            REFERENCE_YEAR = min(2024, max_start_year) if pd.notna(max_start_year) else 2024
+
+            # Extract temporal features - will be NaN for missing dates
             df['start_year'] = df['start_date_parsed'].dt.year
             df['start_month'] = df['start_date_parsed'].dt.month
             df['start_quarter'] = df['start_date_parsed'].dt.quarter
             df['years_since_start'] = REFERENCE_YEAR - df['start_year']
-            df['is_recent_trial'] = (df['years_since_start'] <= 5).astype(int)
+
+            # For trials with missing dates, set temporal features to 0 (neutral value)
+            # instead of median fill which creates misleading patterns
+            temporal_cols = ['start_year', 'start_month', 'start_quarter', 'years_since_start']
+            for col in temporal_cols:
+                if col in df.columns:
+                    df.loc[df['has_start_date'] == 0, col] = 0
+
+            # is_recent_trial: set to 0 for missing dates (unknown = not flagged as recent)
+            df['is_recent_trial'] = ((df['years_since_start'] <= 5) & (df['has_start_date'] == 1)).astype(int)
 
         return df
 
@@ -354,7 +383,8 @@ class TrialFeatureEngineer:
             'is_interventional', 'is_observational',
             'is_phase1', 'is_phase2', 'is_phase3', 'is_phase4',
             'is_industry_sponsored', 'is_nih_sponsored',
-            'is_combination_therapy', 'is_recent_trial', 'is_major_sponsor'
+            'is_combination_therapy', 'is_recent_trial', 'is_major_sponsor',
+            'has_start_date'  # Flag for valid temporal information
         ]
 
         condition_features = [col for col in df.columns if col.startswith('condition_')]
@@ -380,10 +410,18 @@ class TrialFeatureEngineer:
         # Create modeling dataframe
         df_modeling = df[available_features].copy()
 
-        # Clean data - consolidate fillna logic
+        # Clean data - fill missing values intelligently
+        # Note: temporal features are already handled (set to 0 for missing dates)
+        temporal_feature_names = ['start_year', 'start_month', 'start_quarter', 'years_since_start']
+
         for col in df_modeling.columns:
             if df_modeling[col].dtype in ['float64', 'int64']:
-                df_modeling[col] = df_modeling[col].fillna(df_modeling[col].median())
+                # Skip temporal features - they're already properly set to 0 for missing dates
+                if col in temporal_feature_names:
+                    df_modeling[col] = df_modeling[col].fillna(0)  # Safety fallback only
+                else:
+                    # For non-temporal features, use median fill
+                    df_modeling[col] = df_modeling[col].fillna(df_modeling[col].median())
             else:
                 df_modeling[col] = df_modeling[col].fillna(0)
 
@@ -411,26 +449,46 @@ def main():
         print("Labeled data not found. Please run data_labeling.py first.")
         return
 
+    # Filter out trials that start after 2024-12-31 to prevent temporal leakage
+    print(f"Original dataset size: {len(df)}")
+    if 'start_date' in df.columns:
+        df['start_date_parsed'] = pd.to_datetime(df['start_date'], errors='coerce')
+        cutoff_date = pd.Timestamp('2024-12-31')
+        future_trials = df[df['start_date_parsed'] > cutoff_date]
+        if len(future_trials) > 0:
+            print(f"WARNING: Removing {len(future_trials)} trials with start_date > 2024-12-31 to prevent temporal leakage")
+            print(f"Date range of removed trials: {future_trials['start_date_parsed'].min()} to {future_trials['start_date_parsed'].max()}")
+            # Keep trials with date <= cutoff OR with NaN dates (don't remove NaN)
+            df = df[(df['start_date_parsed'] <= cutoff_date) | (df['start_date_parsed'].isna())].copy()
+        df = df.drop(columns=['start_date_parsed'])
+
+    print(f"Filtered dataset size: {len(df)}")
+
     engineer = TrialFeatureEngineer()
 
-    # Extract all features
-    df_features = engineer.extract_all_features(df, fit=True)
+    # Extract all features (excluding text features to avoid leakage)
+    print("\nExtracting features (excluding TF-IDF text features to prevent data leakage)...")
+    df_features = engineer.extract_all_features(df, fit=True, include_text_features=False)
 
     # Select features for modeling
     df_modeling = engineer.select_features_for_modeling(df_features)
 
-    # Add labels back
-    if 'binary_outcome' in df.columns:
-        df_modeling['binary_outcome'] = df['binary_outcome']
-    if 'outcome_label' in df.columns:
-        df_modeling['outcome_label'] = df['outcome_label']
+    # Store labels separately for training scripts to use
+    labels_df = df[['binary_outcome', 'outcome_label']].copy() if 'binary_outcome' in df.columns else None
 
-    # Save engineered features
+    # Save engineered features WITHOUT labels to prevent accidental leakage
     output_file = "../data/clinical_trials_features.csv"
     df_modeling.to_csv(output_file, index=False)
 
+    # Save labels separately
+    if labels_df is not None:
+        labels_file = "../data/clinical_trials_labels.csv"
+        labels_df.to_csv(labels_file, index=False)
+        print(f"Labels saved separately to {labels_file}")
+
     print(f"\nEngineered features saved to {output_file}")
     print(f"Feature matrix shape: {df_modeling.shape}")
+    print(f"NOTE: Labels (binary_outcome, outcome_label) are NOT included in features file to prevent data leakage")
     print("\n=== Feature Summary ===")
     print(f"Total features: {len(df_modeling.columns)}")
     print("\nFeature types:")

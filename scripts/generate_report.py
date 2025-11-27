@@ -71,15 +71,23 @@ def load_results(results_dir):
 
 
 def calculate_dataset_statistics(results):
-    """Calculate dataset statistics from confusion matrices."""
+    """Calculate dataset statistics from model results."""
     if not results:
         return None
 
-    cm = results[0]['confusion_matrix']
-    test_size = sum(sum(row) for row in cm)
-    total_samples = int(test_size / 0.2)
-    train_size = total_samples - test_size
+    # Use actual sizes from results if available, otherwise calculate from confusion matrix
+    if 'total_samples' in results[0] and 'train_size' in results[0] and 'test_size' in results[0]:
+        total_samples = results[0]['total_samples']
+        train_size = results[0]['train_size']
+        test_size = results[0]['test_size']
+    else:
+        # Fallback: calculate from confusion matrix (assumes 80/20 split)
+        cm = results[0]['confusion_matrix']
+        test_size = sum(sum(row) for row in cm)
+        total_samples = int(test_size / 0.2)
+        train_size = total_samples - test_size
 
+    cm = results[0]['confusion_matrix']
     class_0_count = cm[0][0] + cm[0][1]
     class_1_count = cm[1][0] + cm[1][1]
 
@@ -93,10 +101,16 @@ def calculate_dataset_statistics(results):
         if 'feature_names' in feature_data:
             feature_count = len(feature_data['feature_names'])
 
+    # Calculate actual train/test percentages
+    train_pct = (train_size / total_samples * 100) if total_samples > 0 else 0
+    test_pct = (test_size / total_samples * 100) if total_samples > 0 else 0
+
     return {
         'total_samples': total_samples,
         'train_size': train_size,
         'test_size': test_size,
+        'train_pct': train_pct,
+        'test_pct': test_pct,
         'class_0_count': class_0_count,
         'class_1_count': class_1_count,
         'class_0_pct': (class_0_count / test_size) * 100,
@@ -191,21 +205,31 @@ def create_confusion_matrices(results):
 
         # Add text annotations
         max_val = max(max(row) for row in cm)
-        threshold = max_val * 0.4
+        threshold = max_val * 0.5
         x_labels = ['Predicted 0', 'Predicted 1']
         y_labels = ['Actual 0', 'Actual 1']
 
         for i in range(2):
             for j in range(2):
-                text_color = '#1e293b' if cm[i][j] < threshold else 'white'
+                # Use white text for dark backgrounds, dark text for light backgrounds
+                text_color = 'white' if cm[i][j] > threshold else '#1e293b'
+                # Calculate subplot position for axis references
+                # Plotly subplot axes: first is 'x'/'y', rest are 'x2'/'y2', 'x3'/'y3', etc.
+                axis_num = subplot_row * cols - cols + subplot_col
+                x_axis = 'x' if axis_num == 1 else f'x{axis_num}'
+                y_axis = 'y' if axis_num == 1 else f'y{axis_num}'
                 annotations.append(dict(
                     x=x_labels[j], y=y_labels[i],
-                    text=f'{cm[i][j]}<br>({cm_pct[i][j]:.1f}%)',
-                    xref=f'x{idx+1}', yref=f'y{idx+1}',
+                    text=f'<b>{cm[i][j]}</b><br>({cm_pct[i][j]:.1f}%)',
+                    xref=x_axis, yref=y_axis,
                     showarrow=False,
-                    font=dict(color=text_color, size=12, family='Inter, sans-serif'),
+                    font=dict(color=text_color, size=13, family='Inter, sans-serif'),
                     xanchor='center', yanchor='middle'
                 ))
+
+    # Preserve existing annotations (subplot titles) and add our annotations
+    existing_annotations = list(fig.layout.annotations)
+    all_annotations = existing_annotations + annotations
 
     fig.update_layout(
         height=300 * rows,
@@ -215,7 +239,7 @@ def create_confusion_matrices(results):
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(family="Inter, sans-serif", color='#1e293b'),
-        annotations=annotations
+        annotations=all_annotations
     )
 
     return fig
@@ -341,11 +365,10 @@ def build_content_sections(results, dataset_stats, best_model):
                     </div>
                     <div class="info-block">
                         <h3>Data Source</h3>
-                        <p><strong>ClinicalTrials.gov API v2</strong></p>
-                        <p>Completed Phase 2/3 antibody trials</p>
-                        <pre><code>AREA[OverallStatus]COMPLETED AND (AREA[Phase]PHASE2 OR AREA[Phase]PHASE3)</code></pre>
-                    </div>
-                    <div class="info-block">
+                        <p><strong>ClinicalTrials.gov Bulk XML Download</strong></p>
+                        <p>Streaming parse from S3-hosted bulk XML archive</p>
+                        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">Phase 2/3 interventional antibody trials (completed/terminated/withdrawn status)</p>
+                    </div>                    <div class="info-block">
                         <h3>Success Labeling Strategy</h3>
                         <p><strong>Refined Binary Classification:</strong></p>
                         <ul>
@@ -369,8 +392,8 @@ def build_content_sections(results, dataset_stats, best_model):
                         <h3>Sample Counts</h3>
                         <ul>
                             <li><strong>Total Samples:</strong> {dataset_stats['total_samples']:,} trials</li>
-                            <li><strong>Training Set:</strong> {dataset_stats['train_size']:,} samples (80%)</li>
-                            <li><strong>Test Set:</strong> {dataset_stats['test_size']:,} samples (20%)</li>
+                            <li><strong>Training Set:</strong> {dataset_stats['train_size']:,} samples ({dataset_stats['train_pct']:.1f}%)</li>
+                            <li><strong>Test Set:</strong> {dataset_stats['test_size']:,} samples ({dataset_stats['test_pct']:.1f}%)</li>
                         </ul>
                     </div>
                     <div class="info-block">
@@ -383,9 +406,9 @@ def build_content_sections(results, dataset_stats, best_model):
                     <div class="info-block">
                         <h3>Data Quality</h3>
                         <ul>
-                            <li><strong>Source:</strong> ClinicalTrials.gov official API</li>
-                            <li><strong>Validation:</strong> Stratified train/test split</li>
-                            <li><strong>Features:</strong> {dataset_stats['feature_count']} domain-specific engineered features</li>
+                            <li><strong>Source:</strong> ClinicalTrials.gov Bulk XML (S3)</li>
+                            <li><strong>Validation:</strong> Random stratified train/test split (80/20)</li>
+                            <li><strong>Features:</strong> 32 domain-specific engineered features</li>
                         </ul>
                     </div>
                 </div>
@@ -393,23 +416,25 @@ def build_content_sections(results, dataset_stats, best_model):
         ''')
 
     # Feature engineering card
-    feature_count_display = dataset_stats['feature_count'] if dataset_stats else 'TBD'
     sections.append(f'''
             <div class="card">
                 <h3 style="margin-bottom: 0.75rem; color: var(--primary-cyan); font-size: 1.25rem; font-weight: 600;">
-                    Feature Engineering - {feature_count_display} Features
+                    Feature Engineering - 32 Features
                 </h3>
-                <p style="color: var(--text-body); margin-bottom: 1rem;">Comprehensive feature set extracted from clinical trial metadata:</p>
+                <p style="color: var(--text-body); margin-bottom: 1rem;">Domain-specific feature set:</p>
                 <div class="feature-pills">
-                    <span class="pill">Trial Duration & Timeline</span>
-                    <span class="pill">Enrollment Size</span>
-                    <span class="pill">Study Phase (2 vs 3)</span>
-                    <span class="pill">Antibody Characteristics</span>
-                    <span class="pill">Study Design Type</span>
-                    <span class="pill">Sponsor Information</span>
-                    <span class="pill">Condition Categories</span>
-                    <span class="pill">Text Features (TF-IDF)</span>
+                    <span class="pill">Antibody Type & Mechanism (12 features)</span>
+                    <span class="pill">Trial Design & Enrollment (8 features)</span>
+                    <span class="pill">Disease Categories (8 features)</span>
+                    <span class="pill">Sponsor Characteristics (3 features)</span>
+                    <span class="pill">Temporal Features (4 features + has_start_date flag)</span>
+                    <span class="pill">Trial Metadata (1 feature)</span>
                 </div>
+                <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-secondary);">
+                    <strong>Antibody-specific features:</strong> Type classification (murine/chimeric/humanized/fully_human), target mechanisms (checkpoint inhibitors, growth factors, cytokines, CD markers), biomarker selection, combination therapy indicators
+                    <br><br>
+                    <strong>Methodology:</strong> Post-2024 trials filtered (22), text features excluded, has_start_date flag for missing dates (45%), stratified random split
+                </p>
             </div>
         </section>
     ''')
@@ -503,29 +528,45 @@ def generate_html_report(results, output_file, timestamp=None, workflow_url=None
     dataset_stats = calculate_dataset_statistics(results)
 
     # Load template
-    template_path = Path(__file__).parent / 'templates' / 'report_template.html'
+    template_path = Path(__file__).parent / 'templates' / 'dashboard_template.html'
     with open(template_path) as f:
         template = f.read()
 
     # Build content
     content = build_content_sections(results, dataset_stats, best_model)
 
-    # Footer meta
-    footer_parts = []
-    if timestamp:
-        footer_parts.append(f'<p class="meta">Generated: {timestamp}</p>')
-    if workflow_url:
-        footer_parts.append(f'<p class="meta"><a href="{workflow_url}" target="_blank">View Workflow Run →</a></p>')
+    # Build summary cards (metrics grid)
+    summary_cards_html = f'''
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); position: relative; overflow: hidden;">
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--primary-blue);"></div>
+            <div style="font-size: 0.875rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; font-weight: 600;">Best Model</div>
+            <div style="font-size: 2.5rem; font-weight: 700; line-height: 1; color: var(--primary-blue);">{best_model['model_name']}</div>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); position: relative; overflow: hidden;">
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--primary-teal);"></div>
+            <div style="font-size: 0.875rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; font-weight: 600;">ROC AUC Score</div>
+            <div style="font-size: 2.5rem; font-weight: 700; line-height: 1; color: var(--primary-teal);">{best_model['roc_auc']:.4f}</div>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); position: relative; overflow: hidden;">
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent-orange);"></div>
+            <div style="font-size: 0.875rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; font-weight: 600;">F1 Score</div>
+            <div style="font-size: 2.5rem; font-weight: 700; line-height: 1; color: var(--accent-orange);">{best_model['f1']:.4f}</div>
+        </div>
+    </div>
+    '''
 
-    # Render template
-    html = template.format(
-        subtitle="AIPI 520 Project 2 · Antibody Trials Analysis",
-        best_model_name=best_model['model_name'],
-        best_model_roc_auc=f"{best_model['roc_auc']:.4f}",
-        best_model_f1=f"{best_model['f1']:.4f}",
-        content=content,
-        footer_meta='\n'.join(footer_parts)
-    )
+    # Render template using replace (like EDA scripts)
+    html = template.replace('{{ title }}', 'Clinical Trial Outcome Prediction')
+    html = html.replace('{{ header_icon }}', '')
+    html = html.replace('{{ raw_active }}', '')
+    html = html.replace('{{ features_active }}', '')
+    html = html.replace('{{ metadata.timestamp }}', timestamp or 'Not specified')
+    html = html.replace('{{ metadata.data_source }}', 'ClinicalTrials.gov API')
+    html = html.replace('{{ metadata.workflow_url }}', workflow_url or '#')
+    html = html.replace('{{ summary_cards }}', summary_cards_html)
+    html = html.replace('{{ content }}', content)
+    html = html.replace('{{ insights }}', '')
 
     # Write output
     output_path = Path(output_file)

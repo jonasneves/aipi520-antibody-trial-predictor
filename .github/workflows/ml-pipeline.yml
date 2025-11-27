@@ -1,5 +1,5 @@
 name: ML Pipeline
-run-name: "${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.data_source == 'bulk_xml' && 'ML Pipeline - Bulk XML' || format('ML Pipeline - {0} studies', github.event.inputs.max_studies)) || format('ML Pipeline - {0}', github.ref_name) }}"
+run-name: "ML Pipeline"
 
 on:
   push:
@@ -14,33 +14,18 @@ on:
       - 'run_pipeline.py'
       - '.github/workflows/ml-pipeline.yml'
   workflow_dispatch:
-    inputs:
-      data_source:
-        description: 'Data source: api or bulk_xml'
-        required: false
-        default: 'api'
-        type: choice
-        options:
-          - api
-          - bulk_xml
-      max_studies:
-        description: 'Maximum trials to collect (0 = unlimited, only for API)'
-        required: false
-        default: '50000'
-        type: string
 
 permissions:
   contents: write
   id-token: write
 
 env:
-  DATA_SOURCE: ${{ github.event.inputs.data_source || 'api' }}
-  MAX_STUDIES: ${{ github.event.inputs.max_studies || '50000' }}
-  CACHE_KEY_SUFFIX: ${{ github.event.inputs.data_source == 'bulk_xml' && 'bulk_xml' || (github.event.inputs.max_studies == '0' && 'unlimited' || github.event.inputs.max_studies || '50000') }}
+  DATA_SOURCE: 'bulk_xml'
+  CACHE_KEY_SUFFIX: 'bulk_xml'
 
 jobs:
-  # Stage 1a: Data Collection & Labeling
-  collect:
+  # Stage 1: Data Preparation (Collection + Labeling)
+  prepare-data:
     runs-on: ubuntu-latest
     timeout-minutes: 45  # Increased for bulk XML processing (~30 min for ~500K trials)
     outputs:
@@ -95,7 +80,7 @@ jobs:
           echo "Downloaded cached raw data from S3"
 
       - name: Convert cached bulk XML to CSV
-        if: steps.s3-cache.outputs.raw-cache-hit == 'true' && env.DATA_SOURCE == 'bulk_xml'
+        if: steps.s3-cache.outputs.raw-cache-hit == 'true'
         run: |
           echo "Converting cached raw JSON to CSV format..."
           python -c "
@@ -114,13 +99,8 @@ jobs:
           "
           echo "✓ Converted cached data to CSV"
 
-      - name: Collect data from API
-        if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'api'
-        run: |
-          python run_pipeline.py --steps collect --max-studies ${{ env.MAX_STUDIES }}
-
       - name: Download and parse bulk XML from S3
-        if: steps.s3-cache.outputs.raw-cache-hit != 'true' && env.DATA_SOURCE == 'bulk_xml'
+        if: steps.s3-cache.outputs.raw-cache-hit != 'true'
         run: |
           echo "Downloading bulk XML file from S3 (~2.6GB, this may take several minutes)..."
 
@@ -175,45 +155,46 @@ jobs:
       - name: Label data
         run: python run_pipeline.py --steps label
 
-      - name: Create collection summary
+      - name: Create preparation summary
         run: |
+          echo "# Data Preparation Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Collection stage summary
+          echo "## Stage 1: Raw Data Collection" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.s3-cache.outputs.raw-cache-hit }}" == "true" ]; then
-            echo "# Data Collection (Raw Data Cached)" >> $GITHUB_STEP_SUMMARY
+            echo "**Source:** S3 Cache (skipped fresh download)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Raw data downloaded from S3 cache**" >> $GITHUB_STEP_SUMMARY
-            echo "Skipped 10-minute API collection" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**S3 Key:** ${{ steps.s3-cache.outputs.raw-s3-key }}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "# Data Labeling Complete" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.s3-cache.outputs.raw-cache-hit }}" != "true" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ env.DATA_SOURCE }}" = "bulk_xml" ]; then
-              echo "**Data Source:** ClinicalTrials.gov Bulk XML (parsed from ~500K trials)" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "**Data Source:** ClinicalTrials.gov API (collected fresh)" >> $GITHUB_STEP_SUMMARY
-            fi
-          fi
-          if [ "${{ env.MAX_STUDIES }}" = "0" ]; then
-            echo "**Max Studies:** Unlimited (all available)" >> $GITHUB_STEP_SUMMARY
+            echo "**S3 Key:** \`${{ steps.s3-cache.outputs.raw-s3-key }}\`" >> $GITHUB_STEP_SUMMARY
           else
-            echo "**Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Source:** ClinicalTrials.gov Bulk XML (~500K trials parsed)" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "## Generated Files" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          ls -lh data/clinical_trials_binary.csv >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          RAW_SAMPLES=$(tail -n +2 data/completed_phase2_3_trials.csv 2>/dev/null | wc -l || echo "N/A")
+          RAW_COLS=$(head -1 data/completed_phase2_3_trials.csv 2>/dev/null | tr ',' '\n' | wc -l || echo "N/A")
+
+          echo "**Output:** \`completed_phase2_3_trials.csv\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trials:** $RAW_SAMPLES Phase 2/3 antibody trials" >> $GITHUB_STEP_SUMMARY
+          echo "- **Columns:** ~$RAW_COLS (trial metadata, no labels yet)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          SAMPLES=$(tail -n +2 data/clinical_trials_binary.csv | wc -l)
-          RAW_FEATURES=$(head -1 data/clinical_trials_binary.csv | tr ',' '\n' | wc -l)
+          # Labeling stage summary
+          echo "## Stage 2: Outcome Labeling" >> $GITHUB_STEP_SUMMARY
+          echo "**Output:** \`clinical_trials_binary.csv\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "**Samples:** $SAMPLES trials" >> $GITHUB_STEP_SUMMARY
-          echo "**Raw Columns:** $RAW_FEATURES" >> $GITHUB_STEP_SUMMARY
+          LABELED_SAMPLES=$(tail -n +2 data/clinical_trials_binary.csv | wc -l)
+          LABELED_COLS=$(head -1 data/clinical_trials_binary.csv | tr ',' '\n' | wc -l)
+          SUCCESS_COUNT=$(tail -n +2 data/clinical_trials_binary.csv | cut -d',' -f33 | grep -c '^1$' || echo "0")
+          FAILURE_COUNT=$(tail -n +2 data/clinical_trials_binary.csv | cut -d',' -f33 | grep -c '^0$' || echo "0")
+          SUCCESS_PCT=$(awk "BEGIN {printf \"%.1f\", ($SUCCESS_COUNT / $LABELED_SAMPLES) * 100}")
+          FAILURE_PCT=$(awk "BEGIN {printf \"%.1f\", ($FAILURE_COUNT / $LABELED_SAMPLES) * 100}")
+
+          echo "- **Samples:** $LABELED_SAMPLES labeled trials" >> $GITHUB_STEP_SUMMARY
+          echo "- **Columns:** $LABELED_COLS (metadata + \`outcome_label\` + \`binary_outcome\`)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Success (1):** $SUCCESS_COUNT trials ($SUCCESS_PCT%)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Failure (0):** $FAILURE_COUNT trials ($FAILURE_PCT%)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "<details>" >> $GITHUB_STEP_SUMMARY
@@ -226,7 +207,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "<details>" >> $GITHUB_STEP_SUMMARY
-          echo "<summary>View All Raw Columns ($RAW_FEATURES total)</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "<summary>View All Columns ($LABELED_COLS total)</summary>" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           head -1 data/clinical_trials_binary.csv | tr ',' '\n' | nl >> $GITHUB_STEP_SUMMARY
@@ -242,7 +223,7 @@ jobs:
 
   # Stage 1b (Parallel): EDA for Raw Data
   eda-raw:
-    needs: collect
+    needs: prepare-data
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -272,7 +253,7 @@ jobs:
             data/clinical_trials_binary.csv \
             docs/eda_raw_data.html \
             --timestamp "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
-            --data-source "${{ env.DATA_SOURCE == 'bulk_xml' && 'Bulk XML (~500K trials)' || 'ClinicalTrials.gov API' }}" \
+            --data-source "ClinicalTrials.gov Bulk XML (~500K trials)" \
             --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Upload EDA report
@@ -282,9 +263,9 @@ jobs:
           path: docs/eda_raw_data.html
           retention-days: 30
 
-  # Stage 1c: Feature Engineering
-  engineer:
-    needs: collect
+  # Stage 2: Feature Engineering
+  engineer-features:
+    needs: prepare-data
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -321,27 +302,22 @@ jobs:
 
       - name: Upload features to S3
         run: |
-          aws s3 cp data/clinical_trials_features.csv "s3://aipi520-antibody-trial-predictor/${{ needs.collect.outputs.s3-key }}"
+          aws s3 cp data/clinical_trials_features.csv "s3://aipi520-antibody-trial-predictor/${{ needs.prepare-data.outputs.s3-key }}"
           echo "Uploaded features to S3 for archival"
 
       - name: Create engineering summary
         run: |
           echo "# Feature Engineering Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Uploaded to:** S3 for archival" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "## Generated Files" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          ls -lh data/clinical_trials_features.csv >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
 
           SAMPLES=$(tail -n +2 data/clinical_trials_features.csv | wc -l)
           ENG_FEATURES=$(head -1 data/clinical_trials_features.csv | tr ',' '\n' | wc -l)
 
-          echo "**Samples:** $SAMPLES trials" >> $GITHUB_STEP_SUMMARY
-          echo "**Engineered Features:** $ENG_FEATURES columns" >> $GITHUB_STEP_SUMMARY
+          echo "**Output:** \`clinical_trials_features.csv\` + \`clinical_trials_labels.csv\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Samples:** $SAMPLES trials (post-2024 filtered)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Features:** $ENG_FEATURES columns (labels saved separately)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Storage:** S3" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "<details>" >> $GITHUB_STEP_SUMMARY
@@ -370,7 +346,7 @@ jobs:
 
   # Stage 2a (Parallel): EDA for Engineered Features
   eda-features:
-    needs: engineer
+    needs: engineer-features
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -400,7 +376,7 @@ jobs:
             data/clinical_trials_features.csv \
             docs/eda_features.html \
             --timestamp "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
-            --data-source "${{ env.DATA_SOURCE == 'bulk_xml' && 'Bulk XML (~500K trials)' || 'ClinicalTrials.gov API' }}" \
+            --data-source "ClinicalTrials.gov Bulk XML (~500K trials)" \
             --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Upload EDA report
@@ -411,8 +387,8 @@ jobs:
           retention-days: 30
 
   # Stage 2b: Train Models in Parallel (Matrix Strategy)
-  train:
-    needs: engineer
+  train-models:
+    needs: engineer-features
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -476,8 +452,8 @@ jobs:
           retention-days: 30
 
   # Stage 3: Aggregate Results and Compare
-  aggregate:
-    needs: [train, eda-raw, eda-features]
+  aggregate-results:
+    needs: [train-models, eda-raw, eda-features]
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -522,15 +498,16 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
           publish_branch: gh-pages
-          commit_message: "Dashboard + EDA: ${{ env.MAX_STUDIES }} trials"
+          commit_message: "Dashboard + EDA Reports - $(date -u +%Y-%m-%d)"
 
       - name: Commit results
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add models/*.pkl reports/model_comparison.csv docs/index.html || true
+          git add models/*.pkl reports/model_comparison.csv docs/model_dashboard.html || true
           if ! git diff --staged --quiet; then
-            git commit -m "Pipeline results: ${{ env.MAX_STUDIES }} trials - $(date -u +%Y-%m-%d)"
+            git commit -m "Pipeline results - $(date -u +%Y-%m-%d)"
+            git pull --rebase origin main
             git push
           fi
 
@@ -539,26 +516,23 @@ jobs:
           echo "# ML Pipeline Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Configuration" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ env.DATA_SOURCE }}" = "bulk_xml" ]; then
-            echo "- **Data Source:** Bulk XML (~500K trials parsed)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- **Max Studies:** ${{ env.MAX_STUDIES }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Data Source:** ClinicalTrials.gov API" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "- **Data Source:** ClinicalTrials.gov Bulk XML (~500K trials)" >> $GITHUB_STEP_SUMMARY
           echo "- **Models Trained:** 5 (in parallel)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "## Published Reports" >> $GITHUB_STEP_SUMMARY
           REPO_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-          echo "- 📊 [Model Dashboard](${REPO_URL}/model_dashboard.html)" >> $GITHUB_STEP_SUMMARY
-          echo "- 📈 [Raw Data EDA](${REPO_URL}/eda_raw_data.html)" >> $GITHUB_STEP_SUMMARY
-          echo "- 📉 [Engineered Features EDA](${REPO_URL}/eda_features.html)" >> $GITHUB_STEP_SUMMARY
+          echo "- [**Landing Page**](${REPO_URL}/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Model Dashboard](${REPO_URL}/model_dashboard.html)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Raw Data EDA](${REPO_URL}/eda_raw_data.html)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Engineered Features EDA](${REPO_URL}/eda_features.html)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -f reports/model_comparison.csv ]; then
-            # Extract best model info (model_name is column 7, roc_auc is column 5)
-            BEST_MODEL=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f7)
-            BEST_AUC=$(tail -n +2 reports/model_comparison.csv | head -n 1 | cut -d',' -f5)
+            # Extract best model info using Python to properly handle quoted CSV fields
+            BEST_INFO=$(python -c "import csv; f=open('reports/model_comparison.csv','r'); reader=csv.DictReader(f); row=next(reader); print(f\"{row['model_name']}|{row['roc_auc']}\"); f.close()")
+            BEST_MODEL=$(echo "$BEST_INFO" | cut -d'|' -f1)
+            BEST_AUC=$(echo "$BEST_INFO" | cut -d'|' -f2)
 
             echo "## Best Model" >> $GITHUB_STEP_SUMMARY
             echo "**${BEST_MODEL}** with ROC AUC: **${BEST_AUC}**" >> $GITHUB_STEP_SUMMARY

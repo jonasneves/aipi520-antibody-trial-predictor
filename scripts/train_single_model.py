@@ -130,7 +130,7 @@ def extract_feature_importance(model, feature_names, top_n=20):
     }
 
 
-def train_model(model_code, data_path, output_dir):
+def train_model(model_code, data_path, output_dir, use_temporal_split=False):
     """Train a single model and save results."""
 
     # Load configuration
@@ -144,6 +144,19 @@ def train_model(model_code, data_path, output_dir):
 
     # Load data
     df = pd.read_csv(data_path)
+
+    # Try to load labels from separate file first, fallback to features file
+    labels_path = Path(data_path).parent / 'clinical_trials_labels.csv'
+    if labels_path.exists():
+        labels_df = pd.read_csv(labels_path)
+        if 'binary_outcome' in labels_df.columns:
+            df['binary_outcome'] = labels_df['binary_outcome']
+            print(f"Loaded labels from {labels_path}")
+
+    # Filter valid outcomes
+    if 'binary_outcome' not in df.columns:
+        raise ValueError("binary_outcome column not found in features or labels file")
+
     df = df[df['binary_outcome'].isin([0, 1])]
 
     # Separate features and labels
@@ -162,10 +175,45 @@ def train_model(model_code, data_path, output_dir):
             f"Classification requires at least 2 classes."
         )
 
-    # Split data with stratification
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+    # Split data - temporal split if explicitly requested and start_year is available
+    if use_temporal_split and 'start_year' in X.columns:
+        print("\nUsing TIME-BASED split:")
+        print("  - Train: trials started before 2023")
+        print("  - Test: trials started in 2023 or later")
+        print("  - WARNING: May suffer from temporal confounding if recent trials differ systematically")
+
+        temporal_cutoff = 2023
+        train_mask = X['start_year'] < temporal_cutoff
+        test_mask = X['start_year'] >= temporal_cutoff
+
+        X_train = X[train_mask]
+        X_test = X[test_mask]
+        y_train = y[train_mask]
+        y_test = y[test_mask]
+
+        print(f"  - Train size: {len(X_train)} samples ({len(X_train)/len(X)*100:.1f}%)")
+        print(f"  - Test size: {len(X_test)} samples ({len(X_test)/len(X)*100:.1f}%)")
+        print(f"  - Train class distribution: {y_train.value_counts().to_dict()}")
+        print(f"  - Test class distribution: {y_test.value_counts().to_dict()}")
+
+        # Verify both sets have both classes
+        if len(y_train.unique()) < 2 or len(y_test.unique()) < 2:
+            print("\nWARNING: Temporal split resulted in single-class train or test set.")
+            print("Falling back to stratified random split...")
+            use_temporal_split = False
+    else:
+        use_temporal_split = False
+
+    # Random stratified split (default)
+    if not use_temporal_split:
+        print("\nUsing RANDOM STRATIFIED split (80/20):")
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+        print(f"  - Train size: {len(X_train)} samples ({len(X_train)/len(X)*100:.1f}%)")
+        print(f"  - Test size: {len(X_test)} samples ({len(X_test)/len(X)*100:.1f}%)")
+        print(f"  - Train class distribution: {y_train.value_counts().to_dict()}")
+        print(f"  - Test class distribution: {y_test.value_counts().to_dict()}")
 
     # Initialize model
     ModelClass = config['class']
@@ -189,7 +237,10 @@ def train_model(model_code, data_path, output_dir):
     metrics.update({
         'model_name': model_name,
         'model_code': model_code,
-        'training_time': float(training_time)
+        'training_time': float(training_time),
+        'train_size': len(X_train),
+        'test_size': len(X_test),
+        'total_samples': len(X)
     })
 
     # Cross-validation
@@ -237,7 +288,7 @@ def train_model(model_code, data_path, output_dir):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
+    if len(sys.argv) < 4:
         print(__doc__)
         sys.exit(1)
 
@@ -245,4 +296,7 @@ if __name__ == '__main__':
     data_path = sys.argv[2]
     output_dir = sys.argv[3]
 
-    train_model(model_code, data_path, output_dir)
+    # Optional: use --temporal-split flag to enable temporal split (not recommended due to temporal confounding)
+    use_temporal_split = '--temporal-split' in sys.argv
+
+    train_model(model_code, data_path, output_dir, use_temporal_split=use_temporal_split)

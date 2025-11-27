@@ -1,127 +1,195 @@
-# Predicting Monoclonal Antibody Clinical Trial Success
+# Monoclonal Antibody Clinical Trial Success Predictor
 
-[![ML Pipeline](https://github.com/jonasneves/aipi520-project2/actions/workflows/ml-pipeline.yml/badge.svg)](https://github.com/jonasneves/aipi520-project2/actions/workflows/ml-pipeline.yml)
+[![ML Pipeline](https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/workflows/ml-pipeline.yml/badge.svg)](https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/workflows/ml-pipeline.yml)
 
-## Project Overview
+**Reports Portal:** [Model Dashboard](https://jonasneves.github.io/aipi520-antibody-trial-predictor) | [Raw Data EDA](https://jonasneves.github.io/aipi520-antibody-trial-predictor/eda_raw_data.html) | [Engineered Features EDA](https://jonasneves.github.io/aipi520-antibody-trial-predictor/eda_features.html)
 
-This project develops a machine learning model to predict the success of **monoclonal antibody (mAb) clinical trials**, focusing on one of the fastest-growing and most valuable therapeutic classes in pharmaceutical R&D.
+## Overview
 
-## Background
+Predict clinical trial success for monoclonal antibody (mAb) therapeutics using machine learning. Built for Duke AIPI 520.
 
-**Market Context**: Monoclonal antibodies represent a $237+ billion global market (2023) [1] growing at 11-12% CAGR [1], with successful drugs like Keytruda ($25B/year) [3] and Humira (peak $21B) [4]. However, development costs $1-2 billion per drug [6] over 10-15 years [7], with high Phase 2/3 failure risk [2].
+**Problem:** Monoclonal antibodies represent a $237B+ global market with $1-2B development costs per drug and high Phase 2/3 failure rates (~70%).
 
-**Clinical Trial Phases**:
-- **Phase 1**: Safety/dosage testing
-- **Phase 2**: Efficacy proof (highest failure rate ~70%) [2]
-- **Phase 3**: Large-scale validation vs. standard of care
+**Solution:** Machine learning classifiers trained on 7,094 Phase 2/3 antibody trials from ClinicalTrials.gov with 32 domain-specific features (antibody type, mechanism, biomarkers, trial design, temporal features) using stratified random validation.
+
+## Dataset
+
+| Source | Description | Coverage |
+|--------|-------------|----------|
+| [ClinicalTrials.gov Bulk XML](https://clinicaltrials.gov/data-api/about-api/bulk-data) | Complete trial registry | ~500K total trials available |
+| Raw Antibody Trials | Phase 2/3 completed antibody trials | 7,116 trials collected |
+| Processed Dataset | After labeling, temporal filtering & feature engineering | 7,094 trials (22 post-2024 trials filtered) |
+| Features | Antibody-specific + traditional trial features (no text features) | 32 features engineered |
+
+**Data Collection:** Bulk XML download from S3, streaming parse (no 11GB extraction needed), antibody classification by INN nomenclature (-umab/-zumab/-ximab/-omab).
+
+## Model Performance
+
+**Evaluation Method:** Random stratified train/test split (80/20)
+- **Train:** 5,675 samples (80%)
+- **Test:** 1,419 samples (20%)
+
+**Best Model:** TBD (will be updated after re-training)
+
+**Methodology:**
+- Post-2024 trials filtered (22 trials)
+- Text features excluded (50 TF-IDF features)
+- `has_start_date` flag added for trials with missing dates (45% of dataset)
+- Temporal features set to 0 for missing dates
+- Stratified random split ensures balanced class distribution in train/test sets
+
+**Note:** Previous time-based split (pre-2023 train, 2023+ test) showed temporal confounding - recent trials had 28.6% success vs 72.5% for older trials due to incomplete follow-up time. Random split provides more reliable performance estimates.
+
+## Quick Start
+
+```bash
+make install    # Install dependencies
+make pipeline   # Run complete pipeline (collect → label → features → train → dashboard)
+```
+
+View results:
+```bash
+open docs/index.html  # Model comparison dashboard
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| ML | scikit-learn, XGBoost, pandas, numpy |
+| Data Processing | XML parsing, streaming (zipfile), antibody classification |
+| Visualization | Plotly (interactive charts), HTML reports |
+| Cloud Storage | AWS S3 (bulk XML hosting) |
+| CI/CD | GitHub Actions (parallel model training) |
+| Deployment | GitHub Pages (automated reports) |
 
 ## Project Structure
 
 ```
-clinical-trial-prediction/
-├── data/               # Raw and processed datasets
-├── notebooks/          # Jupyter notebooks for exploration and analysis
-├── src/               # Source code for data processing and modeling
-├── models/            # Trained model artifacts
-├── reports/           # Written reports and documentation
-└── requirements.txt   # Python dependencies
+src/                    # ML pipeline
+├── antibody_utils.py   # Antibody classification (INN nomenclature)
+├── xml_parser.py       # Bulk XML parsing
+├── data_labeling.py    # Success/failure classification
+└── feature_engineering.py  # 32 feature extraction
+
+scripts/
+├── parse_bulk_xml.py   # S3 download & parse (~500K trials)
+├── train_single_model.py  # Individual model training
+├── generate_eda_*.py   # EDA report generation
+└── charts/             # Plotly visualization modules
+
+data/                   # Generated datasets (CSV)
+models/                 # Trained models (.pkl)
+docs/                   # HTML reports (GitHub Pages)
 ```
 
-## Data Sources
-
-- **ClinicalTrials.gov API**: Programmatic access to clinical trial data
-- **Downloaded Dataset**: Complete dataset for offline analysis
-
-## Methodology
-
-1. **Data Collection**: ClinicalTrials.gov API (Phase 2/3 antibody trials)
-2. **Data Labeling**: Binary classification (success/failure) based on trial status
-3. **Feature Engineering**: 91 domain-specific features (antibody-specific + traditional)
-4. **Model Training**: 5 models (Logistic Regression, Decision Tree, Random Forest, Gradient Boosting, XGBoost)
-5. **Evaluation**: ROC AUC (primary), F1, accuracy, precision, recall with stratified cross-validation
-
-## Features (91 Total)
-
-**Antibody-Specific**: Type (-umab/-zumab/-ximab), target mechanism (checkpoint inhibitors, growth factors, cytokines), biomarker selection (HER2+, PD-L1+), combination therapy
-
-**Traditional Trial**: Design (phase, study type), disease category, sponsor type/experience, enrollment size, temporal (duration, start date), historical success rates
-
-## Models
-
-5 models with class weighting: Logistic Regression, Decision Tree, Random Forest, Gradient Boosting (best: ROC AUC 0.824), XGBoost
-
-## References
-
-1. Grand View Research. (2023). *Monoclonal Antibodies Market Size, Share & Trends Analysis Report*. Market size: USD 237.61 billion in 2023, projected to reach USD 494.53 billion by 2030 at 11.04% CAGR. https://www.grandviewresearch.com/industry-analysis/monoclonal-antibodies-market
-
-2. Hay, M., Thomas, D.W., Craighead, J.L., Economides, C., & Rosenthal, J. (2014). "Clinical development success rates for investigational drugs." *Nature Biotechnology*, 32, 40-51. DOI: 10.1038/nbt.2786
-
-3. Merck & Co. (2024). *Keytruda Annual Revenue Report*. 2023 sales: $25.01 billion. https://www.statista.com/statistics/1269401/revenues-of-keytruda/
-
-4. AbbVie Inc. (2024). *Humira Revenue Data*. Peak sales: $21.2 billion (2022); 2023 sales: $14.4 billion (post-biosimilar competition). https://www.statista.com/statistics/318206/revenue-of-humira/
-
-5. Roche. *Herceptin (Trastuzumab) Sales Data*. Peak sales: ~$7 billion (2018); 2023 sales: $1.7 billion (biosimilar erosion).
-
-6. Congressional Budget Office. (2021). *Research and Development in the Pharmaceutical Industry*. Estimated cost range: less than $1 billion to more than $2 billion per approved drug. https://www.cbo.gov/publication/57126
-
-7. DiMasi, J.A., Grabowski, H.G., & Hansen, R.W. (2016). "Innovation in the pharmaceutical industry: new estimates of R&D costs." *Journal of Health Economics*, 47, 20-33. Average development timeline: 10-15 years.
-
-8. Fu, T., Huang, K., Xiao, C., Glass, L. M., & Sun, J. (2022). "HINT: Hierarchical interaction network for clinical-trial-outcome predictions." *Patterns*, 3(4), Article 100445. DOI: 10.1016/j.patter.2022.100445
-
-9. Elkin, M. E., & Zhu, X. (2021). "Predictive modeling of clinical trial terminations using feature engineering and embedding learning." *Scientific Reports*, 11, 3446. DOI: 10.1038/s41598-021-82840-x
-
-10. World Health Organization. *International Nonproprietary Names (INN) for Biological and Biotechnological Substances*. Monoclonal antibody nomenclature guidelines: -umab (human), -zumab (humanized), -ximab (chimeric), -omab (murine).
-
-## Team Members
-
-- De Oliveira Neves, Jonas
-- Kallichanda, Sharmil Nanjappa
-- Tanzillo, Dominic
-
-## Setup & Usage
+## Detailed Usage
 
 ### Installation
 ```bash
-pip install -r requirements.txt
+make install
+# or: pip install -r requirements.txt
 ```
 
 ### Automated Pipeline (GitHub Actions)
-Push to main branch triggers automated training of all 5 models in parallel.
+Push to main branch triggers:
+1. Bulk XML download from S3 (or use cache)
+2. Data labeling (7,116 → 7,094 trials after temporal filtering) & feature engineering (32 features)
+3. Models trained with time-based validation (Gradient Boosting, Random Forest, XGBoost, Logistic Regression, Decision Tree)
+4. EDA reports & model dashboard generated with interactive Plotly visualizations
+5. Results automatically deployed to GitHub Pages
 
-### Manual Pipeline Execution
+### Manual Pipeline
 
-**Step 1: Data Preparation**
+Run complete pipeline:
 ```bash
-# Collect, label, and engineer features for antibody trials
-python run_pipeline.py --steps all --max-studies 50000
-# Outputs: data/clinical_trials_features.csv
+make pipeline
 ```
 
-**Step 2: Train Models** (train each model separately)
+Or individual steps:
 ```bash
-python scripts/train_single_model.py lr data/clinical_trials_features.csv results/
-python scripts/train_single_model.py dt data/clinical_trials_features.csv results/
-python scripts/train_single_model.py rf data/clinical_trials_features.csv results/
-python scripts/train_single_model.py gb data/clinical_trials_features.csv results/
-python scripts/train_single_model.py xgb data/clinical_trials_features.csv results/
-# Model codes: lr=Logistic Regression, dt=Decision Tree, rf=Random Forest, gb=Gradient Boosting, xgb=XGBoost
+make collect    # Download and parse bulk XML from S3 (7,116 trials)
+make label      # Label trials as success/failure
+make features   # Engineer 32 features
+make train      # Train models with stratified random split
+make dashboard  # Generate comparison dashboard with interactive charts
 ```
 
-**Step 3: Aggregate Results**
+### Training Individual Models
+
 ```bash
-python scripts/aggregate_results.py results/ results/metrics_summary.json
+python scripts/train_single_model.py <model_code> data/clinical_trials_features.csv models/
+# Add --temporal-split flag to use time-based split (not recommended due to temporal confounding)
 ```
 
-**Step 4: Generate Dashboard**
-```bash
-python scripts/generate_report.py results/metrics_summary.json docs/index.html
-# View: open docs/index.html
-```
+Model codes: `lr` (Logistic Regression), `dt` (Decision Tree), `rf` (Random Forest), `gb` (Gradient Boosting), `xgb` (XGBoost)
+
+**Default:** Random stratified split (80% train, 20% test)
+
+## Features (32 Total)
+
+**Antibody-Specific (12 features):**
+- Type classification: murine, chimeric, humanized, fully_human (4 binary features)
+- Target mechanisms: checkpoint inhibitors (PD-1/PD-L1), growth factors (HER2/EGFR), cytokines, CD markers (4 binary features)
+- Biomarker selection: HER2+, PD-L1+, EGFR+ (1 binary feature)
+- Combination therapy indicators (1 binary feature)
+- Favorable indication flags (1 binary feature)
+- Antibody-specific metadata (1 feature)
+
+**Traditional Trial Features (20 features):**
+- Trial design: interventional/observational, phase indicators (6 features)
+- Enrollment metrics: raw count, log-transformed count (2 features)
+- Disease categories: cancer, cardiovascular, neurological, diabetes, infectious, respiratory, autoimmune, mental health (8 features)
+- Sponsor: type (industry/NIH), trial count, major sponsor flag (3 features)
+- Trial metadata: number of conditions (1 feature)
+
+**Temporal Features (4 features):**
+- `has_start_date`: Binary flag indicating valid start date (1 feature)
+- Start year, years since start, recent trial flag (3 features)
+- **Note:** 45% of trials have missing dates → set to 0
+
+**Text Features:** Excluded (50 TF-IDF features not used)
+
+## Methodology
+
+1. **Data Collection:** Stream parse bulk XML from S3, filter Phase 2/3 interventional antibody trials → 7,116 trials
+2. **Data Labeling:** Refined binary classification (Completed/Approved = success; Terminated/Withdrawn for efficacy/safety = failure; Administrative terminations excluded) → 7,094 trials (22 post-2024 trials filtered)
+3. **Feature Engineering:** Extract 32 domain-specific features: 12 antibody-specific, 20 traditional trial, 4 temporal (no text features). `has_start_date` flag added for missing dates (45% of dataset)
+4. **Model Training:** Train classifiers with stratified random split (Gradient Boosting, Random Forest, XGBoost, Logistic Regression, Decision Tree) using stratified 3-fold CV. 80/20 train/test split
+5. **Evaluation:** ROC AUC (primary metric), plus F1, accuracy
+
+## Background
+
+**Market Context:** Monoclonal antibodies represent a $237+ billion global market (2023) growing at 11-12% CAGR, with blockbuster drugs like Keytruda ($25B/year) and Humira (peak $21B). Development costs $1-2 billion per drug over 10-15 years, with high Phase 2/3 failure risk (~70%).
+
+**Clinical Trial Phases:**
+- Phase 1: Safety/dosage testing
+- Phase 2: Efficacy proof (highest failure rate)
+- Phase 3: Large-scale validation vs. standard of care
 
 ## AI Usage Acknowledgment
 
-This project was developed with assistance from AI tools (Claude/Anthropic) for code development, documentation, and domain knowledge research. All code and analysis were reviewed, tested, and thoroughly understood by the team. The team takes full responsibility for the implementation and can explain all design decisions.
+**AI Assistants:** Claude Code (Anthropic) for code development, documentation, and domain knowledge research.
+
+All code and analysis were reviewed, tested, and thoroughly understood by the team. The team takes full responsibility for the implementation and can explain all design decisions.
+
+## References
+
+1. Grand View Research. (2023). *Monoclonal Antibodies Market Size, Share & Trends Analysis Report*. https://www.grandviewresearch.com/industry-analysis/monoclonal-antibodies-market
+2. Hay, M., et al. (2014). "Clinical development success rates for investigational drugs." *Nature Biotechnology*, 32, 40-51. DOI: 10.1038/nbt.2786
+3. Merck & Co. (2024). *Keytruda Annual Revenue Report*. https://www.statista.com/statistics/1269401/revenues-of-keytruda/
+4. AbbVie Inc. (2024). *Humira Revenue Data*. https://www.statista.com/statistics/318206/revenue-of-humira/
+5. Congressional Budget Office. (2021). *Research and Development in the Pharmaceutical Industry*. https://www.cbo.gov/publication/57126
+6. DiMasi, J.A., et al. (2016). "Innovation in the pharmaceutical industry: new estimates of R&D costs." *Journal of Health Economics*, 47, 20-33.
+7. Fu, T., et al. (2022). "HINT: Hierarchical interaction network for clinical-trial-outcome predictions." *Patterns*, 3(4), Article 100445.
+8. World Health Organization. *International Nonproprietary Names (INN) for Biological and Biotechnological Substances*.
+
+## Authors
+
+Jonas De Oliveira Neves, Sharmil Nanjappa Kallichanda, Dominic Tanzillo
+
+Duke University - AIPI 520, 2025
 
 ## License
 
-Academic project for educational purposes.
+MIT

@@ -108,12 +108,12 @@ def parse_and_filter_trials_from_zip(zip_path: Path, output_file: Path, progress
 
 def convert_to_csv_format(trials: List[Dict], csv_file: Path):
     """
-    Convert parsed trials to CSV format expected by data_collection.py
+    Convert parsed trials to CSV format expected by the pipeline.
 
-    This creates the same format as data_collection.save_studies_to_csv()
+    Creates a flat CSV with antibody classification and trial metadata.
     """
     import pandas as pd
-    from data_collection import analyze_antibody
+    from antibody_utils import analyze_antibody
 
     print(f"\nConverting to CSV format for pipeline compatibility...")
 
