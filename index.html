@@ -58,9 +58,9 @@
 
         .header {
             background: linear-gradient(135deg,
-                rgba(37, 99, 235, 0.06) 0%,
-                rgba(8, 145, 178, 0.05) 50%,
-                rgba(6, 182, 212, 0.04) 100%);
+                rgba(37, 99, 235, 0.12) 0%,
+                rgba(8, 145, 178, 0.10) 50%,
+                rgba(6, 182, 212, 0.08) 100%);
             color: var(--text-primary);
             padding: 3rem 2rem;
             text-align: center;
@@ -199,7 +199,7 @@
             left: 0;
             right: 0;
             height: 4px;
-            background: linear-gradient(90deg, var(--primary-teal), var(--primary-blue));
+            background: linear-gradient(90deg, var(--primary-blue), transparent);
         }
 
         .stat-card:hover {
@@ -292,12 +292,24 @@
             padding: 2rem;
             margin-bottom: 1.5rem;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-blue), transparent);
         }
 
         .card h3 {
             font-size: 1.1rem;
             font-weight: 600;
-            color: var(--text-primary);
+            color: var(--primary-teal);
             margin-bottom: 1rem;
         }
 
@@ -385,12 +397,12 @@
         }
 
         .pill {
-            background: var(--bg-secondary);
-            color: var(--text-body);
+            background: rgba(8, 145, 178, 0.15);
+            color: var(--primary-cyan);
             padding: 0.5rem 1rem;
             border-radius: 20px;
             font-size: 0.85rem;
-            border: 1px solid var(--border-color);
+            border: 1px solid rgba(6, 182, 212, 0.4);
             font-weight: 500;
         }
 
@@ -408,14 +420,14 @@
         }
 
         thead {
-            background: var(--bg-secondary);
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-teal));
         }
 
         th {
             padding: 1rem;
             text-align: left;
             font-weight: 600;
-            color: var(--text-primary);
+            color: white;
             border-bottom: 2px solid var(--border-color);
         }
 
@@ -425,16 +437,20 @@
             color: var(--text-body);
         }
 
-        tr:hover {
+        tbody tr {
+            transition: background 0.2s ease;
+        }
+
+        tbody tr:hover {
             background: var(--bg-secondary);
         }
 
         tr.best-model {
-            background: rgba(8, 145, 178, 0.05);
+            background: rgba(37, 99, 235, 0.08);
         }
 
         .badge {
-            background: var(--primary-teal);
+            background: var(--accent-orange);
             color: white;
             padding: 0.25rem 0.75rem;
             border-radius: 12px;
@@ -502,25 +518,25 @@
 
         <div class="content">
             <div class="metadata">
-                <p><strong>Generated:</strong> 2025-11-27 20:17:34 UTC</p>
+                <p><strong>Generated:</strong> 2025-11-27 20:40:33 UTC</p>
                 <p><strong>Data Source:</strong> ClinicalTrials.gov API</p>
-                <p><strong>Workflow Run:</strong> <a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19746989351" target="_blank">View on GitHub Actions</a></p>
+                <p><strong>Workflow Run:</strong> <a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19747373103" target="_blank">View on GitHub Actions</a></p>
             </div>
 
             
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin: 30px 0;">
         <div class="stat-card">
-            <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--primary-blue);"></div>
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--primary-blue), transparent);"></div>
             <div class="stat-label">Best Model</div>
             <div class="stat-value" style="color: var(--primary-blue);">Gradient Boosting</div>
         </div>
         <div class="stat-card">
-            <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--primary-teal);"></div>
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--primary-teal), transparent);"></div>
             <div class="stat-label">ROC AUC Score</div>
             <div class="stat-value" style="color: var(--primary-teal);">0.7981</div>
         </div>
         <div class="stat-card">
-            <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--accent-orange);"></div>
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--accent-orange), transparent);"></div>
             <div class="stat-label">F1 Score</div>
             <div class="stat-value" style="color: var(--accent-orange);">0.9234</div>
         </div>
@@ -646,7 +662,7 @@
             <td>0.9234</td>
             <td><strong>0.7981</strong></td>
             <td>0.7913 ± 0.0122</td>
-            <td>0.94s</td>
+            <td>1.00s</td>
         </tr>
         
 
@@ -682,7 +698,7 @@
             <td>0.8582</td>
             <td><strong>0.7768</strong></td>
             <td>0.7686 ± 0.0197</td>
-            <td>0.74s</td>
+            <td>0.76s</td>
         </tr>
         
 
