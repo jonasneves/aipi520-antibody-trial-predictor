@@ -70,19 +70,17 @@ def run_data_labeling():
     print("\nCreating binary labels (success=1, failure=0)...")
     df_binary = labeler.create_binary_labels(df_labeled, include_ambiguous=False)
 
-    # Create balanced dataset
-    print("\nCreating balanced dataset...")
-    df_balanced = labeler.balance_dataset(df_binary, method='undersample')
+    # Note: We do NOT balance the dataset here (undersampling).
+    # Class imbalance is handled during model training using class_weight='balanced'.
+    # This ensures we don't discard valuable data from the majority class.
 
     # Save all versions
     df_labeled.to_csv("data/clinical_trials_labeled.csv", index=False)
     df_binary.to_csv("data/clinical_trials_binary.csv", index=False)
-    df_balanced.to_csv("data/clinical_trials_balanced.csv", index=False)
 
     print(f"\n✓ Data labeling complete!")
     print(f"  - Labeled data: data/clinical_trials_labeled.csv")
     print(f"  - Binary labels: data/clinical_trials_binary.csv")
-    print(f"  - Balanced data: data/clinical_trials_balanced.csv")
 
 
 def run_feature_engineering():

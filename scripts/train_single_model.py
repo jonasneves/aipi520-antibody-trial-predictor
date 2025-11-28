@@ -177,14 +177,17 @@ def train_model(model_code, data_path, output_dir, use_temporal_split=False):
 
     # Split data - temporal split if explicitly requested and start_year is available
     if use_temporal_split and 'start_year' in X.columns:
+        # Use a fixed cutoff year for reproducibility, or could use (max_year - 1)
+        TEMPORAL_CUTOFF_YEAR = 2023
+        
         print("\nUsing TIME-BASED split:")
-        print("  - Train: trials started before 2023")
-        print("  - Test: trials started in 2023 or later")
+        print(f"  - Cutoff Year: {TEMPORAL_CUTOFF_YEAR}")
+        print(f"  - Train: trials started before {TEMPORAL_CUTOFF_YEAR}")
+        print(f"  - Test: trials started in {TEMPORAL_CUTOFF_YEAR} or later")
         print("  - WARNING: May suffer from temporal confounding if recent trials differ systematically")
 
-        temporal_cutoff = 2023
-        train_mask = X['start_year'] < temporal_cutoff
-        test_mask = X['start_year'] >= temporal_cutoff
+        train_mask = X['start_year'] < TEMPORAL_CUTOFF_YEAR
+        test_mask = X['start_year'] >= TEMPORAL_CUTOFF_YEAR
 
         X_train = X[train_mask]
         X_test = X[test_mask]
