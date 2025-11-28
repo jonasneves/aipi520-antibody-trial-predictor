@@ -301,7 +301,7 @@
             margin-bottom: 1.5rem;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
             position: relative;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .card::before {
@@ -361,6 +361,7 @@
             position: relative;
             display: inline-block;
             margin-left: 0.25rem;
+            z-index: 9999;
         }
 
         .info-icon {
@@ -380,9 +381,9 @@
         .tooltip-content {
             display: none;
             position: absolute;
-            bottom: 125%;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 50%;
+            left: calc(100% + 10px);
+            transform: translateY(-50%);
             background: var(--text-primary);
             color: white;
             padding: 0.75rem;
@@ -390,8 +391,20 @@
             width: 250px;
             font-size: 0.85rem;
             line-height: 1.4;
-            z-index: 1000;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            white-space: normal;
+        }
+
+        .tooltip-content::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            right: 100%;
+            margin-top: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent var(--text-primary) transparent transparent;
         }
 
         .info-tooltip:hover .tooltip-content {
@@ -520,16 +533,28 @@
         </div>
 
         <div class="nav-bar">
-            <a href="index.html" class="nav-link "><span class="nav-icon">⭐</span> Overview</a>
-            <a href="eda_raw_data.html" class="nav-link "><span class="nav-icon">🔍</span> Raw Data EDA</a>
-            <a href="eda_features.html" class="nav-link active"><span class="nav-icon">🔬</span> Feature EDA</a>
+            
+            <a href="index.html" class="nav-link ">
+                <span class="nav-icon">⭐</span> Overview
+            </a>
+            
+            <a href="eda_raw_data.html" class="nav-link ">
+                <span class="nav-icon">🔍</span> Raw Data EDA
+            </a>
+            
+            <a href="eda_features.html" class="nav-link active">
+                <span class="nav-icon">🔬</span> Feature EDA
+            </a>
+            
         </div>
 
         <div class="content">
             <div class="metadata">
-                <p><strong>Generated:</strong> 2025-11-27 20:45:47 UTC</p>
+                <p><strong>Generated:</strong> 2025-11-28 23:02:48 UTC</p>
                 <p><strong>Data Source:</strong> ClinicalTrials.gov Bulk XML (~500K trials)</p>
-                <p><strong>Workflow Run:</strong> <a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19747462474" target="_blank">View on GitHub Actions</a></p>
+                
+                <p><strong>Workflow Run:</strong> <a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19775328020" target="_blank">View on GitHub Actions</a></p>
+                
             </div>
 
             <div class="summary-stats">

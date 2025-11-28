@@ -301,7 +301,7 @@
             margin-bottom: 1.5rem;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
             position: relative;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .card::before {
@@ -361,6 +361,7 @@
             position: relative;
             display: inline-block;
             margin-left: 0.25rem;
+            z-index: 9999;
         }
 
         .info-icon {
@@ -380,9 +381,9 @@
         .tooltip-content {
             display: none;
             position: absolute;
-            bottom: 125%;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 50%;
+            left: calc(100% + 10px);
+            transform: translateY(-50%);
             background: var(--text-primary);
             color: white;
             padding: 0.75rem;
@@ -390,8 +391,20 @@
             width: 250px;
             font-size: 0.85rem;
             line-height: 1.4;
-            z-index: 1000;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            white-space: normal;
+        }
+
+        .tooltip-content::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            right: 100%;
+            margin-top: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent var(--text-primary) transparent transparent;
         }
 
         .info-tooltip:hover .tooltip-content {
@@ -520,16 +533,28 @@
         </div>
 
         <div class="nav-bar">
-            <a href="index.html" class="nav-link active"><span class="nav-icon">⭐</span> Overview</a>
-            <a href="eda_raw_data.html" class="nav-link "><span class="nav-icon">🔍</span> Raw Data EDA</a>
-            <a href="eda_features.html" class="nav-link "><span class="nav-icon">🔬</span> Feature EDA</a>
+            
+            <a href="index.html" class="nav-link active">
+                <span class="nav-icon">⭐</span> Overview
+            </a>
+            
+            <a href="eda_raw_data.html" class="nav-link ">
+                <span class="nav-icon">🔍</span> Raw Data EDA
+            </a>
+            
+            <a href="eda_features.html" class="nav-link ">
+                <span class="nav-icon">🔬</span> Feature EDA
+            </a>
+            
         </div>
 
         <div class="content">
             <div class="metadata">
-                <p><strong>Generated:</strong> 2025-11-27 20:46:24 UTC</p>
+                <p><strong>Generated:</strong> 2025-11-28 23:03:54 UTC</p>
                 <p><strong>Data Source:</strong> ClinicalTrials.gov API</p>
-                <p><strong>Workflow Run:</strong> <a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19747462474" target="_blank">View on GitHub Actions</a></p>
+                
+                <p><strong>Workflow Run:</strong> <a href="https://github.com/jonasneves/aipi520-antibody-trial-predictor/actions/runs/19775328020" target="_blank">View on GitHub Actions</a></p>
+                
             </div>
 
             
@@ -627,11 +652,11 @@
                 <p style="color: var(--text-body); margin-bottom: 1rem;">Domain-specific feature set:</p>
                 <div class="feature-pills">
                     <span class="pill">Antibody Type & Mechanism (12 features)</span>
-                    <span class="pill">Trial Design & Enrollment (8 features)</span>
-                    <span class="pill">Disease Categories (8 features)</span>
-                    <span class="pill">Sponsor Characteristics (3 features)</span>
-                    <span class="pill">Temporal Features (4 features + has_start_date flag)</span>
-                    <span class="pill">Trial Metadata (1 feature)</span>
+<span class="pill">Trial Design & Enrollment (8 features)</span>
+<span class="pill">Disease Categories (8 features)</span>
+<span class="pill">Sponsor Characteristics (3 features)</span>
+<span class="pill">Temporal Features (4 features + has_start_date flag)</span>
+<span class="pill">Trial Metadata (1 feature)</span>
                 </div>
                 <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-secondary);">
                     <strong>Antibody-specific features:</strong> Type classification (murine/chimeric/humanized/fully_human), target mechanisms (checkpoint inhibitors, growth factors, cytokines, CD markers), biomarker selection, combination therapy indicators
@@ -651,14 +676,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Model</th>
-                            <th>Accuracy</th>
-                            <th>Precision</th>
-                            <th>Recall</th>
-                            <th>F1 Score</th>
-                            <th>ROC AUC</th>
-                            <th>CV ROC AUC (Mean ± Std)</th>
-                            <th>Training Time</th>
+                            <th>Model</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1 Score</th><th>ROC AUC</th><th>CV ROC AUC (Mean ± Std)</th><th>Training Time</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -671,7 +689,7 @@
             <td>0.9234</td>
             <td><strong>0.7981</strong></td>
             <td>0.7913 ± 0.0122</td>
-            <td>0.95s</td>
+            <td>0.93s</td>
         </tr>
         
 
@@ -695,7 +713,7 @@
             <td>0.9169</td>
             <td><strong>0.7808</strong></td>
             <td>0.7913 ± 0.0113</td>
-            <td>0.22s</td>
+            <td>0.21s</td>
         </tr>
         
 
