@@ -178,7 +178,7 @@ def train_model(model_code, data_path, output_dir, use_temporal_split=False):
     # Split data - temporal split if explicitly requested and start_year is available
     if use_temporal_split and 'start_year' in X.columns:
         # Use a fixed cutoff year for reproducibility, or could use (max_year - 1)
-        TEMPORAL_CUTOFF_YEAR = 2023
+        TEMPORAL_CUTOFF_YEAR = 2022
         
         print("\nUsing TIME-BASED split:")
         print(f"  - Cutoff Year: {TEMPORAL_CUTOFF_YEAR}")
