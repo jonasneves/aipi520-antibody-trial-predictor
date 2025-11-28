@@ -468,7 +468,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install pandas plotly
+        run: pip install -r requirements.txt
 
       - name: Download all model results
         uses: actions/download-artifact@v4
