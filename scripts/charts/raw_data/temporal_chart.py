@@ -11,6 +11,11 @@ def create_temporal_chart(df: pd.DataFrame) -> go.Figure:
     df['start_year'] = df['start_date_parsed'].dt.year
 
     trials_by_year = df['start_year'].value_counts().sort_index()
+    
+    # Calculate missing stats for subtitle
+    missing_count = df['start_year'].isna().sum()
+    total_count = len(df)
+    missing_pct = (missing_count / total_count) * 100
 
     fig = go.Figure(data=[
         go.Scatter(
@@ -19,15 +24,17 @@ def create_temporal_chart(df: pd.DataFrame) -> go.Figure:
             mode='lines+markers',
             line=dict(width=2, color='steelblue'),
             marker=dict(size=8),
+            hovertemplate='<b>Year:</b> %{x}<br><b>Trials:</b> %{y:,}<extra></extra>'
         )
     ])
 
     fig.update_layout(
-        title='Trials Started by Year',
+        title=f'Trials Started by Year<br><sup>(Excludes {missing_count:,} trials ({missing_pct:.1f}%) with missing start dates)</sup>',
         xaxis_title='Year',
         yaxis_title='Number of Trials',
         height=400,
-        template='plotly_white'
+        template='plotly_white',
+        hovermode='x unified'
     )
 
     return fig

@@ -18,18 +18,26 @@ def create_interventions_chart(df: pd.DataFrame) -> Optional[go.Figure]:
         return None
 
     intervention_counts = pd.Series(all_interventions).value_counts()
-
+    
     fig = go.Figure(data=[
-        go.Pie(
-            labels=intervention_counts.index,
-            values=intervention_counts.values,
-            hole=0.3,
-            textinfo='label+percent',
+        go.Bar(
+            y=intervention_counts.index[::-1],  # Reverse for better readability
+            x=intervention_counts.values[::-1],
+            orientation='h',
+            marker=dict(
+                color=intervention_counts.values[::-1],
+                colorscale='Plasma',
+                showscale=False
+            ),
+            text=intervention_counts.values[::-1],
+            textposition='auto',
         )
     ])
 
     fig.update_layout(
         title='Distribution of Intervention Types',
+        xaxis_title='Number of Trials',
+        yaxis_title='Intervention Type',
         height=500,
         template='plotly_white'
     )

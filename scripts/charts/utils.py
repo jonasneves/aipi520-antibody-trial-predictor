@@ -2,8 +2,6 @@
 import pandas as pd
 import plotly.graph_objects as go
 from typing import Optional, Dict, Any
-
-
 def create_simple_bar_chart(
     df: pd.DataFrame,
     column: str,
@@ -33,40 +31,56 @@ def create_simple_bar_chart(
         height: Chart height in pixels
         template: Plotly template name
         custom_colors: List of colors to use instead of colorscale
-        **kwargs: Additional arguments passed to go.Bar()
+        **kwargs: Additional arguments passed to go.Bar(). Can include 'text' to override defaults.
 
     Returns:
         Plotly Figure object
     """
     counts = df[column].value_counts()
 
-    # Prepare text labels
-    if show_percentages:
-        total = counts.sum()
-        percentages = (counts / total * 100).round(1)
-        text_labels = [f'{count:,} ({pct}%)' for count, pct in zip(counts.values, percentages)]
-    else:
-        text_labels = counts.values
+    # Generate default text labels if 'text' is not provided in kwargs
+    if 'text' not in kwargs:
+        if show_percentages:
+            total = counts.sum()
+            percentages = (counts / total * 100).round(1)
+            kwargs['text'] = [f'{count:,} ({pct}%)' for count, pct in zip(counts.values, percentages)]
+        else:
+            kwargs['text'] = counts.values.astype(str) # Ensure text is string for display
 
     # Prepare marker configuration
     marker_config = {}
     if custom_colors:
         marker_config['color'] = custom_colors
     else:
+        # Use theme-friendly gradient instead of Viridis
+        # Duke colors: blues and teals
+        theme_colorscale = [
+            [0.0, '#005587'],   # Primary blue
+            [0.5, '#339898'],   # Primary teal
+            [1.0, '#1D6363']    # Primary cyan
+        ]
         marker_config = {
             'color': counts.values,
-            'colorscale': colorscale,
+            'colorscale': theme_colorscale,
             'showscale': False
         }
 
-    # Create bar chart based on orientation
+    # For horizontal bars, reverse the data so largest appears at top
     if orientation == 'h':
+        y_data = list(reversed(counts.index))
+        x_data = list(reversed(counts.values))
+        # Also reverse text if it was provided
+        if 'text' in kwargs:
+            kwargs['text'] = list(reversed(kwargs['text']))
+        # Update marker colors for reversed data
+        if 'color' in marker_config and not isinstance(marker_config['color'], str):
+            marker_config['color'] = list(reversed(marker_config['color']))
+
         bar_data = go.Bar(
-            y=counts.index,
-            x=counts.values,
+            y=y_data,
+            x=x_data,
             orientation='h',
             marker=marker_config,
-            text=text_labels,
             textposition='auto',
             **kwargs
         )
@@ -75,7 +89,6 @@ def create_simple_bar_chart(
             x=counts.index,
             y=counts.values,
             marker=marker_config,
-            text=text_labels,
             textposition='auto',
             **kwargs
         )

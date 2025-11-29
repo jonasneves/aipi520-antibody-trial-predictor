@@ -58,7 +58,14 @@ def create_antibody_by_area_chart(df: pd.DataFrame, top_n: int = 10) -> Optional
         text=cross_tab.values.tolist(),
         texttemplate='%{text}',
         textfont={"size": 10},
-        colorbar=dict(title="Trials")
+        colorbar=dict(title="Trials"),
+        hovertemplate=(
+            '<b>Condition:</b> %{y}<br>' +
+            '<b>Antibody Type:</b> %{x}<br>' +
+            '<b>Trials:</b> %{z}<br>' +
+            '<b>Percentage for this Condition:</b> %{customdata:.1f}%<extra></extra>'
+        ),
+        customdata=(cross_tab.div(cross_tab.sum(axis=1), axis=0) * 100).values.tolist()
     ))
 
     fig.update_layout(

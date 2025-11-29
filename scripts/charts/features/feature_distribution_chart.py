@@ -35,24 +35,34 @@ def create_feature_distribution_chart(df: pd.DataFrame) -> Optional[go.Figure]:
         row = idx // 3 + 1
         col_pos = idx % 3 + 1
 
+        # Filter out 0 values for temporal features where 0 indicates missing/imputed
+        plot_data = df[col].dropna()
+        col_title = col
+        
+        if col in ['start_year', 'years_since_start']:
+            # Filter out 0s which represent missing values
+            plot_data = plot_data[plot_data > 0]
+            col_title = f"{col} (zeros excluded)"
+            
         # Add histogram
         fig.add_trace(
-            go.Histogram(x=df[col].dropna().tolist(), nbinsx=30, marker_color='lightblue', name=col, showlegend=False),
+            go.Histogram(x=plot_data.tolist(), nbinsx=30, marker_color='lightblue', name=col, showlegend=False),
             row=row, col=col_pos
         )
 
-        # Add median line
-        median_val = df[col].median()
-        fig.add_vline(
-            x=median_val,
-            line_dash="dash",
-            line_color="red",
-            opacity=0.7,
-            annotation_text=f"Median: {median_val:.1f}",
-            annotation_position="top",
-            annotation_font_size=9,
-            row=row, col=col_pos
-        )
+        # Add median line (only for non-zero data if filtered)
+        if len(plot_data) > 0:
+            median_val = plot_data.median()
+            fig.add_vline(
+                x=median_val,
+                line_dash="dash",
+                line_color="red",
+                opacity=0.7,
+                annotation_text=f"Median: {median_val:.1f}",
+                annotation_position="top",
+                annotation_font_size=9,
+                row=row, col=col_pos
+            )
 
     fig.update_layout(
         title_text='Distribution of Key Features (with Median Lines)',

@@ -51,9 +51,10 @@ class RawDataReportGenerator(BaseReportGenerator):
 
     def get_charts(self, df: pd.DataFrame) -> Dict:
         """Create all charts for raw data report"""
+        from charts.raw_data.combined_overview_chart import create_combined_overview_chart
+        
         return {
-            'status': create_status_chart(df),
-            'phase': create_phase_chart(df),
+            'combined_overview': create_combined_overview_chart(df),
             'sponsor': create_sponsor_chart(df),
             'enrollment': create_enrollment_chart(df),
             'temporal': create_temporal_chart(df),
@@ -62,7 +63,6 @@ class RawDataReportGenerator(BaseReportGenerator):
             'antibody_temporal': create_antibody_temporal_chart(df),
             'top_antibodies': create_top_antibodies_chart(df),
             'antibody_by_area': create_antibody_by_area_chart(df),
-            'outcome': create_outcome_chart(df),
             'conditions': create_conditions_chart(df),
             'interventions': create_interventions_chart(df),
             'phase_status': create_phase_status_heatmap(df),
@@ -74,18 +74,26 @@ class RawDataReportGenerator(BaseReportGenerator):
         df_copy = df.copy()
         df_copy['start_date_parsed'] = pd.to_datetime(df_copy['start_date'], errors='coerce')
         df_copy['start_year'] = df_copy['start_date_parsed'].dt.year
+        
+        # Calculate missing dates
+        total_trials = len(df)
+        missing_dates = df_copy['start_year'].isna().sum()
+        missing_pct = (missing_dates / total_trials) * 100
+        
+        valid_years = df_copy['start_year'].dropna()
+        year_range = f"{valid_years.min():.0f} - {valid_years.max():.0f}" if not valid_years.empty else "N/A"
 
         return [
-            ('Total Trials', f'{len(df):,}'),
-            ('Features', f'{len(df.columns)}'),
+            ('Total Trials', f'{total_trials:,}'),
+            ('Missing Start Dates', f'{missing_dates:,} ({missing_pct:.1f}%)'),
+            ('Year Range', year_range),
             ('Median Enrollment', f'{df["enrollment"].median():.0f}'),
-            ('Year Range', f'{df_copy["start_year"].min():.0f} - {df_copy["start_year"].max():.0f}'),
         ]
 
     def get_chart_sections(self) -> List[Tuple[str, List[str]]]:
         """Define chart sections for raw data report"""
         return [
-            ('Trial Overview', ['status', 'phase', 'outcome', 'phase_status']),
+            ('Trial Overview', ['combined_overview', 'phase_status']),
             ('Antibody Analysis', ['antibody', 'antibody_success', 'antibody_temporal', 'top_antibodies', 'antibody_by_area']),
             ('Study Characteristics', ['sponsor', 'enrollment', 'temporal']),
             ('Therapeutic Areas', ['conditions', 'interventions']),

@@ -359,8 +359,12 @@ def main():
     # Label the dataset
     df_labeled = labeler.label_dataset(df)
 
-    # Create binary labels
-    df_binary = labeler.create_binary_labels(df_labeled, include_ambiguous=False)
+    # Create binary labels using Clean Labels strategy (exclude administrative terminations)
+    df_binary = labeler.create_binary_labels(
+        df_labeled,
+        include_ambiguous=False,
+        use_refined_labels=True  # Exclude admin terminations (funding, enrollment, business)
+    )
 
     # Save labeled data
     df_labeled.to_csv("../data/clinical_trials_labeled.csv", index=False)

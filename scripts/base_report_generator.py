@@ -110,12 +110,38 @@ class BaseReportGenerator(ABC):
         """
         cards = []
         for label, value in stats:
-            cards.extend([
-                '<div class="stat-card">',
-                f'    <div class="stat-label">{label}</div>',
-                f'    <div class="stat-value">{value}</div>',
-                '</div>',
-            ])
+            # Check if value contains percentage in parentheses
+            if '(' in value and ')' in value:
+                # Split main value and percentage
+                import re
+                match = re.match(r'^(.+?)\s*\((.+?)\)$', value)
+                if match:
+                    main_value = match.group(1).strip()
+                    percentage = match.group(2).strip()
+                    cards.extend([
+                        '<div class="stat-card">',
+                        f'    <div class="stat-label">{label}</div>',
+                        f'    <div class="stat-value">{main_value}',
+                        f'        <div class="stat-percentage">{percentage}</div>',
+                        f'    </div>',
+                        '</div>',
+                    ])
+                else:
+                    # Fallback if regex doesn't match
+                    cards.extend([
+                        '<div class="stat-card">',
+                        f'    <div class="stat-label">{label}</div>',
+                        f'    <div class="stat-value">{value}</div>',
+                        '</div>',
+                    ])
+            else:
+                # No percentage, use regular format
+                cards.extend([
+                    '<div class="stat-card">',
+                    f'    <div class="stat-label">{label}</div>',
+                    f'    <div class="stat-value">{value}</div>',
+                    '</div>',
+                ])
 
         return '<div class="summary-stats">\n' + '\n'.join(cards) + '\n</div>'
 

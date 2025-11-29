@@ -12,7 +12,9 @@ def create_conditions_chart(df: pd.DataFrame) -> Optional[go.Figure]:
     # Extract individual conditions
     all_conditions = []
     for conditions in df['conditions'].dropna():
-        all_conditions.extend([c.strip() for c in str(conditions).split(',')])
+        # Split by both comma and semicolon, then strip whitespace
+        split_conditions = [c.strip() for c in conditions.replace(';', ',').split(',') if c.strip()]
+        all_conditions.extend(split_conditions)
 
     if not all_conditions:
         return None
