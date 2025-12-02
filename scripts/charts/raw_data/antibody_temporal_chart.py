@@ -18,10 +18,10 @@ def create_antibody_temporal_chart(df: pd.DataFrame) -> Optional[go.Figure]:
     df_copy['start_date_parsed'] = pd.to_datetime(df_copy['start_date'], errors='coerce')
     df_copy['start_year'] = df_copy['start_date_parsed'].dt.year
 
-    # Filter out invalid years and incomplete future years
+    # Filter to valid year range
     df_copy = df_copy.dropna(subset=['start_year'])
-    # Exclude years 2024+ as they contain incomplete data
-    df_copy = df_copy[(df_copy['start_year'] >= 1990) & (df_copy['start_year'] <= 2023)]
+    current_year = pd.Timestamp('today').year
+    df_copy = df_copy[(df_copy['start_year'] >= 1990) & (df_copy['start_year'] <= current_year)]
 
     if len(df_copy) == 0:
         return None
@@ -57,8 +57,12 @@ def create_antibody_temporal_chart(df: pd.DataFrame) -> Optional[go.Figure]:
                 stackgroup='one',  # For stacked area chart
             ))
 
+    # Get the actual year range for the title
+    current_year = pd.Timestamp('today').year
+    current_date = pd.Timestamp('today').strftime('%b %d, %Y')
+
     fig.update_layout(
-        title='Temporal Evolution of Antibody Types (1990-2023)',
+        title=f'Temporal Evolution of Antibody Types (1990-{current_year})',
         xaxis_title='Year',
         yaxis_title='Number of Trials',
         height=450,
@@ -73,7 +77,7 @@ def create_antibody_temporal_chart(df: pd.DataFrame) -> Optional[go.Figure]:
         ),
         annotations=[
             dict(
-                text='Note: Years 2024+ excluded due to incomplete data',
+                text=f'Note: {current_year} data through {current_date}',
                 xref='paper',
                 yref='paper',
                 x=0.5,

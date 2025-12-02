@@ -108,13 +108,13 @@ def run_feature_engineering():
     df = pd.read_csv(data_file)
     print(f"Loaded {len(df)} labeled trials")
 
-    # Filter out post-2024 trials
-    print("\nFiltering post-2024 trials...")
+    # Filter out future trials
+    print("\nFiltering future trials...")
     df['start_date_parsed'] = pd.to_datetime(df['start_date'], errors='coerce')
-    cutoff_date = pd.Timestamp('2024-12-31')
+    cutoff_date = pd.Timestamp('today')
     future_trials = df[df['start_date_parsed'] > cutoff_date]
     if len(future_trials) > 0:
-        print(f"  Removing {len(future_trials)} trials with start_date > 2024-12-31")
+        print(f"  Removing {len(future_trials)} trials with start_date > {cutoff_date.date()}")
         df = df[(df['start_date_parsed'] <= cutoff_date) | (df['start_date_parsed'].isna())].copy()
     df = df.drop(columns=['start_date_parsed'])
     print(f"  Filtered dataset: {len(df)} trials")

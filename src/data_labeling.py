@@ -6,8 +6,7 @@ based on their status and outcomes.
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Tuple
+from typing import Tuple
 
 
 class TrialOutcomeLabeler:

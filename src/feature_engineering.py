@@ -10,7 +10,7 @@ Features Extracted (32 total):
 - Temporal: 4 features (including has_start_date flag for missing dates)
 
 Methodology:
-- Post-2024 trials filtered
+- Future trials (after today) filtered to prevent temporal leakage
 - TF-IDF text features excluded by default
 - Temporal features set to 0 for missing dates (45% of dataset)
 - Labels stored separately
@@ -20,8 +20,6 @@ Methodology:
 import pandas as pd
 import numpy as np
 from typing import List, Dict
-from datetime import datetime
-from sklearn.preprocessing import StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from antibody_utils import analyze_antibody
@@ -34,7 +32,6 @@ class TrialFeatureEngineer:
 
     def __init__(self):
         self.label_encoders = {}
-        self.scaler = StandardScaler()
         self.tfidf_vectorizers = {}
         self.sponsor_counts = {}  # Store sponsor counts from training data
 
@@ -97,10 +94,10 @@ class TrialFeatureEngineer:
             # Add binary feature to flag trials with valid start dates
             df['has_start_date'] = df['start_date_parsed'].notna().astype(int)
 
-            # Use dynamic reference year based on the latest trial start date
-            # This prevents temporal leakage from future trials
+            # Use dynamic reference year for temporal features
+            current_year = pd.Timestamp('today').year
             max_start_year = df['start_date_parsed'].dt.year.max()
-            REFERENCE_YEAR = min(2024, max_start_year) if pd.notna(max_start_year) else 2024
+            REFERENCE_YEAR = min(current_year, max_start_year) if pd.notna(max_start_year) else current_year
 
             # Extract temporal features - will be NaN for missing dates
             df['start_year'] = df['start_date_parsed'].dt.year
@@ -449,16 +446,15 @@ def main():
         print("Labeled data not found. Please run data_labeling.py first.")
         return
 
-    # Filter out trials that start after 2024-12-31 to prevent temporal leakage
+    # Filter out future trials to prevent temporal leakage
     print(f"Original dataset size: {len(df)}")
     if 'start_date' in df.columns:
         df['start_date_parsed'] = pd.to_datetime(df['start_date'], errors='coerce')
-        cutoff_date = pd.Timestamp('2024-12-31')
+        cutoff_date = pd.Timestamp('today')
         future_trials = df[df['start_date_parsed'] > cutoff_date]
         if len(future_trials) > 0:
-            print(f"WARNING: Removing {len(future_trials)} trials with start_date > 2024-12-31 to prevent temporal leakage")
+            print(f"WARNING: Removing {len(future_trials)} trials with start_date > {cutoff_date.date()}")
             print(f"Date range of removed trials: {future_trials['start_date_parsed'].min()} to {future_trials['start_date_parsed'].max()}")
-            # Keep trials with date <= cutoff OR with NaN dates (don't remove NaN)
             df = df[(df['start_date_parsed'] <= cutoff_date) | (df['start_date_parsed'].isna())].copy()
         df = df.drop(columns=['start_date_parsed'])
 

@@ -15,6 +15,7 @@ from .outcome_chart import create_outcome_chart
 from .conditions_chart import create_conditions_chart
 from .interventions_chart import create_interventions_chart
 from .phase_status_heatmap import create_phase_status_heatmap
+from .missing_values_chart import create_missing_values_chart
 
 __all__ = [
     'create_status_chart',
@@ -31,4 +32,5 @@ __all__ = [
     'create_conditions_chart',
     'create_interventions_chart',
     'create_phase_status_heatmap',
+    'create_missing_values_chart',
 ]

@@ -43,6 +43,7 @@ from charts.raw_data import (
     create_conditions_chart,
     create_interventions_chart,
     create_phase_status_heatmap,
+    create_missing_values_chart,
 )
 
 
@@ -52,9 +53,10 @@ class RawDataReportGenerator(BaseReportGenerator):
     def get_charts(self, df: pd.DataFrame) -> Dict:
         """Create all charts for raw data report"""
         from charts.raw_data.combined_overview_chart import create_combined_overview_chart
-        
+
         return {
             'combined_overview': create_combined_overview_chart(df),
+            'missing': create_missing_values_chart(df),
             'sponsor': create_sponsor_chart(df),
             'enrollment': create_enrollment_chart(df),
             'temporal': create_temporal_chart(df),
@@ -93,7 +95,7 @@ class RawDataReportGenerator(BaseReportGenerator):
     def get_chart_sections(self) -> List[Tuple[str, List[str]]]:
         """Define chart sections for raw data report"""
         return [
-            ('Trial Overview', ['combined_overview', 'phase_status']),
+            ('Trial Overview', ['combined_overview', 'phase_status', 'missing']),
             ('Antibody Analysis', ['antibody', 'antibody_success', 'antibody_temporal', 'top_antibodies', 'antibody_by_area']),
             ('Study Characteristics', ['sponsor', 'enrollment', 'temporal']),
             ('Therapeutic Areas', ['conditions', 'interventions']),
