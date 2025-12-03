@@ -14,6 +14,7 @@ import json
 import pickle
 import time
 from pathlib import Path
+import numpy as np
 import pandas as pd
 
 # Add src to path
@@ -104,7 +105,10 @@ def calculate_metrics(model, X_test, y_test):
 
 def extract_feature_importance(model, feature_names, top_n=20):
     """
-    Extract feature importance from tree-based models
+    Extract feature importance from models.
+    
+    For tree-based models: uses feature_importances_
+    For linear models (e.g., Logistic Regression): uses absolute coefficients
 
     Args:
         model: Trained model
@@ -114,12 +118,27 @@ def extract_feature_importance(model, feature_names, top_n=20):
     Returns:
         Dictionary with feature names and importances or None
     """
-    if not hasattr(model, 'feature_importances_'):
+    # Check for tree-based models (feature_importances_)
+    if hasattr(model, 'feature_importances_'):
+        importances = model.feature_importances_
+    # Check for linear models (coef_)
+    elif hasattr(model, 'coef_'):
+        # For binary classification, coef_ is shape (1, n_features)
+        # For multi-class, it's (n_classes, n_features)
+        # Take absolute value of coefficients as importance
+        coef = model.coef_
+        if coef.ndim > 1:
+            # For multi-class, use mean absolute coefficient across classes
+            importances = np.abs(coef).mean(axis=0)
+        else:
+            # For binary classification
+            importances = np.abs(coef[0])
+    else:
         return None
 
     # Create and sort feature importance pairs
     feature_importance_pairs = sorted(
-        zip(feature_names, model.feature_importances_),
+        zip(feature_names, importances),
         key=lambda x: x[1],
         reverse=True
     )[:top_n]

@@ -124,7 +124,6 @@ SITE_CONFIG = {
                 'Trial Metadata (1 feature)',
             ],
             'antibody_features': 'Type classification (murine/chimeric/humanized/fully_human), target mechanisms (checkpoint inhibitors, growth factors, cytokines, CD markers), biomarker selection, combination therapy indicators',
-            'methodology': 'Post-2024 trials filtered (22), text features excluded, has_start_date flag for missing dates (45%), stratified random split',
         },
         'model_performance': {
             'title': 'Model Performance Summary',
