@@ -443,8 +443,6 @@ def build_content_sections(results, dataset_stats, best_model):
                 </div>
                 <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-secondary);">
                     <strong>Antibody-specific features:</strong> {fe['antibody_features']}
-                    <br><br>
-                    <strong>Methodology:</strong> {fe['methodology']}
                 </p>
             </div>
         </section>
