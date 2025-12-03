@@ -186,15 +186,15 @@ jobs:
 
           # parse CSV (handles quoted fields with commas)
           STATS=$(python3 -c "
-import pandas as pd
-df = pd.read_csv('data/clinical_trials_binary.csv')
-print(f'{len(df)}')
-print(f'{len(df.columns)}')
-print(f'{(df[\"binary_outcome\"] == 1).sum()}')
-print(f'{(df[\"binary_outcome\"] == 0).sum()}')
-print(f'{(df[\"binary_outcome\"] == 1).sum() / len(df) * 100:.1f}')
-print(f'{(df[\"binary_outcome\"] == 0).sum() / len(df) * 100:.1f}')
-")
+            import pandas as pd
+            df = pd.read_csv('data/clinical_trials_binary.csv')
+            print(f'{len(df)}')
+            print(f'{len(df.columns)}')
+            print(f'{(df[\"binary_outcome\"] == 1).sum()}')
+            print(f'{(df[\"binary_outcome\"] == 0).sum()}')
+            print(f'{(df[\"binary_outcome\"] == 1).sum() / len(df) * 100:.1f}')
+            print(f'{(df[\"binary_outcome\"] == 0).sum() / len(df) * 100:.1f}')
+          ")
           LABELED_SAMPLES=$(echo "$STATS" | sed -n '1p')
           LABELED_COLS=$(echo "$STATS" | sed -n '2p')
           SUCCESS_COUNT=$(echo "$STATS" | sed -n '3p')
