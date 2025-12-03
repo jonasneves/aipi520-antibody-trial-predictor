@@ -184,12 +184,23 @@ jobs:
           echo "**Output:** \`clinical_trials_binary.csv\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          LABELED_SAMPLES=$(tail -n +2 data/clinical_trials_binary.csv | wc -l)
-          LABELED_COLS=$(head -1 data/clinical_trials_binary.csv | tr ',' '\n' | wc -l)
-          SUCCESS_COUNT=$(tail -n +2 data/clinical_trials_binary.csv | cut -d',' -f33 | grep -c '^1$' || echo "0")
-          FAILURE_COUNT=$(tail -n +2 data/clinical_trials_binary.csv | cut -d',' -f33 | grep -c '^0$' || echo "0")
-          SUCCESS_PCT=$(awk "BEGIN {printf \"%.1f\", ($SUCCESS_COUNT / $LABELED_SAMPLES) * 100}")
-          FAILURE_PCT=$(awk "BEGIN {printf \"%.1f\", ($FAILURE_COUNT / $LABELED_SAMPLES) * 100}")
+          # parse CSV (handles quoted fields with commas)
+          STATS=$(python3 -c "
+import pandas as pd
+df = pd.read_csv('data/clinical_trials_binary.csv')
+print(f'{len(df)}')
+print(f'{len(df.columns)}')
+print(f'{(df[\"binary_outcome\"] == 1).sum()}')
+print(f'{(df[\"binary_outcome\"] == 0).sum()}')
+print(f'{(df[\"binary_outcome\"] == 1).sum() / len(df) * 100:.1f}')
+print(f'{(df[\"binary_outcome\"] == 0).sum() / len(df) * 100:.1f}')
+")
+          LABELED_SAMPLES=$(echo "$STATS" | sed -n '1p')
+          LABELED_COLS=$(echo "$STATS" | sed -n '2p')
+          SUCCESS_COUNT=$(echo "$STATS" | sed -n '3p')
+          FAILURE_COUNT=$(echo "$STATS" | sed -n '4p')
+          SUCCESS_PCT=$(echo "$STATS" | sed -n '5p')
+          FAILURE_PCT=$(echo "$STATS" | sed -n '6p')
 
           echo "- **Samples:** $LABELED_SAMPLES labeled trials" >> $GITHUB_STEP_SUMMARY
           echo "- **Columns:** $LABELED_COLS (metadata + \`outcome_label\` + \`binary_outcome\`)" >> $GITHUB_STEP_SUMMARY
