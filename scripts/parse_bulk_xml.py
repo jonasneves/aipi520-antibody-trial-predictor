@@ -201,7 +201,7 @@ def main():
 
     if not zip_file.exists():
         print(f"Error: ZIP file not found at {zip_file}")
-        print("Please download the bulk XML file first from S3")
+        print("Please ensure the bulk XML zip file is placed in the configured S3 bucket or manually placed at the path above.")
         sys.exit(1)
 
     # Parse and filter (streaming from ZIP, no extraction needed)
